@@ -59,13 +59,13 @@ namespace NatDeviceWithOpenCVForUnityExample
             deviceQuery = new MediaDeviceQuery(MediaDeviceQuery.Criteria.GenericCameraDevice);
 
             // Pick camera
-            if (deviceQuery.count == 0)
+            if (deviceQuery.devices.Length == 0)
             {
                 Debug.LogError("Camera device does not exist.");
                 return;
             }
 
-            for (var i = 0; i < deviceQuery.count; i++)
+            for (var i = 0; i < deviceQuery.devices.Length; i++)
             {
                 activeCamera = deviceQuery.currentDevice as ICameraDevice;
                 if (activeCamera.frontFacing == front) break;

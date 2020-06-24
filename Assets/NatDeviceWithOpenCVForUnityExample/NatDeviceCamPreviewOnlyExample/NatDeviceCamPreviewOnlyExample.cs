@@ -21,12 +21,14 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             base.Start();
 
+#if !UNITY_STANDALONE_WIN && !UNITY_EDITOR
             // Request camera permissions
             if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
             {
                 Debug.LogError("User did not grant camera permissions");
                 return;
             }
+#endif
 
             // Load global camera benchmark settings.
             int width, height, framerate;
@@ -96,7 +98,7 @@ namespace NatDeviceWithOpenCVForUnityExample
                 cameraProps.Add("zoomRange", camera.zoomRange.max + "x" + camera.zoomRange.min);
                 cameraProps.Add("zoomRatio", camera.zoomRatio.ToString());
             }
-            
+
             Debug.Log("# Active Camera Properties #####################");
             foreach (string key in cameraProps.Keys)
                 Debug.Log(key + ": " + cameraProps[key]);

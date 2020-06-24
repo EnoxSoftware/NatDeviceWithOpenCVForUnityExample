@@ -237,14 +237,14 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                 int requestedDeviceIndex = -1;
                 if (Int32.TryParse(requestedDeviceName, out requestedDeviceIndex))
                 {
-                    if (requestedDeviceIndex >= 0 && requestedDeviceIndex < deviceQuery.count)
+                    if (requestedDeviceIndex >= 0 && requestedDeviceIndex < deviceQuery.devices.Length)
                     {
                         cameraDevice = deviceQuery.currentDevice as CameraDevice;
                     }
                 }
                 else
                 {
-                    for (int cameraIndex = 0; cameraIndex < deviceQuery.count; cameraIndex++)
+                    for (int cameraIndex = 0; cameraIndex < deviceQuery.devices.Length; cameraIndex++)
                     {
                         if (deviceQuery.currentDevice.uniqueID == requestedDeviceName)
                         {
@@ -261,7 +261,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             if (cameraDevice == null)
             {
                 // Checks how many and which cameras are available on the device
-                for (int cameraIndex = 0; cameraIndex < deviceQuery.count; cameraIndex++)
+                for (int cameraIndex = 0; cameraIndex < deviceQuery.devices.Length; cameraIndex++)
                 {
                     cameraDevice = deviceQuery.currentDevice as CameraDevice;
 
@@ -275,7 +275,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             
             if (cameraDevice == null)
             {
-                if (deviceQuery.count > 0)
+                if (deviceQuery.devices.Length > 0)
                 {
                     cameraDevice = deviceQuery.currentDevice as CameraDevice;
                 }

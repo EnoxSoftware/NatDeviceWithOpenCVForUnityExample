@@ -45,12 +45,14 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             base.Start();
 
+#if !UNITY_STANDALONE_WIN && !UNITY_EDITOR
             // Request camera permissions
             if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
             {
                 Debug.LogError("User did not grant camera permissions");
                 return;
             }
+#endif
 
             // Load global camera benchmark settings.
             int width, height, framerate;
@@ -209,17 +211,17 @@ namespace NatDeviceWithOpenCVForUnityExample
             texture = null;
         }
 
-        #endregion
+#endregion
 
 
-        #region --UI Callbacks--
+#region --UI Callbacks--
 
         public void OnMatCaptureMethodDropdownValueChanged(int result)
         {
             matCaptureMethod = (MatCaptureMethod)result;
         }
 
-        #endregion
+#endregion
 
     }
 }
