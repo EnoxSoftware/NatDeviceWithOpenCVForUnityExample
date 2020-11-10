@@ -1,5 +1,6 @@
 ﻿using NatSuite.Devices;
 using OpenCVForUnity.CoreModule;
+using OpenCVForUnity.ImgprocModule;
 using OpenCVForUnity.UnityUtils;
 using OpenCVForUnity.UnityUtils.Helper;
 using System;
@@ -11,9 +12,9 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 {
     /// <summary>
     /// NatDeviceCamPreview to mat helper.
-    /// v 1.0.0
+    /// v 1.0.1
     /// Depends on NatDevice version 1.0.0 or later.
-    /// Depends on OpenCVForUnity version 2.3.7 or later.
+    /// Depends on OpenCVForUnity version 2.4.1 (WebCamTextureToMatHelper v 1.1.2) or later.
     /// </summary>
     public class NatDeviceCamPreviewToMatHelper : WebCamTextureToMatHelper
     {
@@ -25,7 +26,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         public virtual string uniqueID => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().uniqueID : default;
 
         public virtual bool frontFacing => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().frontFacing : default;
-        
+
         public virtual bool flashSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().flashSupported : default;
 
         public virtual bool torchSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().torchSupported : default;
@@ -231,7 +232,6 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             // Creates the camera
             deviceQuery = deviceQuery ?? new MediaDeviceQuery(MediaDeviceQuery.Criteria.CameraDevice);
 
-            //var devices = deviceQuery.devices;
             if (!String.IsNullOrEmpty(requestedDeviceName))
             {
                 int requestedDeviceIndex = -1;
@@ -349,14 +349,23 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                     Debug.Log("NatDeviceCamPreviewToMatHelper:: " + "UniqueID:" + cameraDevice.uniqueID + " width:" + preview.width + " height:" + preview.height + " fps:" + cameraDevice.frameRate
                     + " isFrongFacing:" + cameraDevice.frontFacing);
 
-                    frameMat = new Mat(preview.height, preview.width, CvType.CV_8UC4);
+                    baseMat = new Mat(preview.height, preview.width, CvType.CV_8UC4);
+
+                    if (baseColorFormat == outputColorFormat)
+                    {
+                        frameMat = baseMat;
+                    }
+                    else
+                    {
+                        frameMat = new Mat(baseMat.rows(), baseMat.cols(), CvType.CV_8UC(Channels(outputColorFormat)));
+                    }
 
                     screenOrientation = Screen.orientation;
                     screenWidth = Screen.width;
                     screenHeight = Screen.height;
 
                     if (rotate90Degree)
-                        rotatedFrameMat = new Mat(preview.width, preview.height, CvType.CV_8UC4);
+                        rotatedFrameMat = new Mat(frameMat.cols(), frameMat.rows(), CvType.CV_8UC(Channels(outputColorFormat)));
 
                     isInitWaiting = false;
                     hasInitDone = true;
@@ -529,7 +538,8 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 #if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR && !DISABLE_NATDEVICE_API
         /// <summary>
         /// Gets the mat of the current frame.
-        /// The Mat object's type is 'CV_8UC4' (RGBA).
+        /// The Mat object's type is 'CV_8UC4' or 'CV_8UC3' or 'CV_8UC1' (ColorFormat is determined by the outputColorFormat setting).
+        /// Please do not dispose of the returned mat as it will be reused.
         /// </summary>
         /// <returns>The mat of the current frame.</returns>
         public override Mat GetMat()
@@ -539,7 +549,15 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                 return (rotatedFrameMat != null) ? rotatedFrameMat : frameMat;
             }
 
-            Utils.fastTexture2DToMat(preview, frameMat, false);
+            if (baseColorFormat == outputColorFormat)
+            {
+                Utils.fastTexture2DToMat(preview, frameMat, false);
+            }
+            else
+            {
+                Utils.fastTexture2DToMat(preview, baseMat, false);
+                Imgproc.cvtColor(baseMat, frameMat, ColorConversionCodes(baseColorFormat, outputColorFormat));
+            }
 
             FlipMat(frameMat, flipVertical, flipHorizontal);
             if (rotatedFrameMat != null)
@@ -623,6 +641,11 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             {
                 frameMat.Dispose();
                 frameMat = null;
+            }
+            if (baseMat != null)
+            {
+                baseMat.Dispose();
+                baseMat = null;
             }
             if (rotatedFrameMat != null)
             {

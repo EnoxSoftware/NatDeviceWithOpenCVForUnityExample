@@ -6,11 +6,11 @@
 
 ## Environment
 - Anddroid (Pixel, Nexus 7) / iOS (iPhone8, iPhone6s)
-- Unity >= 2018.3+
+- Unity >= 2018.4.28f1+
 - Scripting backend MONO / IL2CPP
 - [NatDevice - Media Device API](https://assetstore.unity.com/packages/tools/integration/natdevice-media-device-api-162053?aid=1011l4ehR) 1.0.2+
 - [NatShare - Mobile Sharing API](https://assetstore.unity.com/packages/tools/integration/natshare-mobile-sharing-api-117705?aid=1011l4ehR) 1.2.3+
-- [OpenCV for Unity](https://assetstore.unity.com/packages/tools/integration/opencv-for-unity-21088?aid=1011l4ehR) 2.3.9+
+- [OpenCV for Unity](https://assetstore.unity.com/packages/tools/integration/opencv-for-unity-21088?aid=1011l4ehR) 2.4.1+
 
 
 ## Demo
