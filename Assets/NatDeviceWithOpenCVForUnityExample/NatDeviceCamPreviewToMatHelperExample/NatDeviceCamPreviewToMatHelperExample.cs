@@ -71,6 +71,18 @@ namespace NatDeviceWithOpenCVForUnityExample
         void Start()
         {
             fpsMonitor = GetComponent<FpsMonitor>();
+            if (fpsMonitor != null)
+            {
+                fpsMonitor.Add("deviceName", "");
+                fpsMonitor.Add("width", "");
+                fpsMonitor.Add("height", "");
+                fpsMonitor.Add("camera fps", "");
+                fpsMonitor.Add("isFrontFacing", "");
+                fpsMonitor.Add("rotate90Degree", "");
+                fpsMonitor.Add("flipVertical", "");
+                fpsMonitor.Add("flipHorizontal", "");
+                fpsMonitor.Add("orientation", "");
+            }
 
             webCamTextureToMatHelper = gameObject.GetComponent<NatDeviceCamPreviewToMatHelper>();
             int width, height;
@@ -109,8 +121,10 @@ namespace NatDeviceWithOpenCVForUnityExample
 
             if (fpsMonitor != null)
             {
+                fpsMonitor.Add("deviceName", webCamTextureToMatHelper.GetDeviceName().ToString());
                 fpsMonitor.Add("width", webCamTextureToMatHelper.GetWidth().ToString());
                 fpsMonitor.Add("height", webCamTextureToMatHelper.GetHeight().ToString());
+                fpsMonitor.Add("camera fps", webCamTextureToMatHelper.GetFPS().ToString());
                 fpsMonitor.Add("isFrontFacing", webCamTextureToMatHelper.IsFrontFacing().ToString());
                 fpsMonitor.Add("rotate90Degree", webCamTextureToMatHelper.rotate90Degree.ToString());
                 fpsMonitor.Add("flipVertical", webCamTextureToMatHelper.flipVertical.ToString());
@@ -164,7 +178,6 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             if (webCamTextureToMatHelper.IsPlaying() && webCamTextureToMatHelper.DidUpdateThisFrame())
             {
-
                 Mat rgbaMat = webCamTextureToMatHelper.GetMat();
 
                 //Imgproc.putText (rgbaMat, "W:" + rgbaMat.width () + " H:" + rgbaMat.height () + " SO:" + Screen.orientation, new Point (5, rgbaMat.rows () - 10), Imgproc.FONT_HERSHEY_SIMPLEX, 1.0, new Scalar (255, 255, 255, 255), 2, Imgproc.LINE_AA, false);
@@ -181,12 +194,14 @@ namespace NatDeviceWithOpenCVForUnityExample
             cameraProps.Add("exposureBias", helper.exposureBias.ToString());
             cameraProps.Add("exposureLock", helper.exposureLock.ToString());
             cameraProps.Add("exposureLockSupported", helper.exposureLockSupported.ToString());
+            cameraProps.Add("exposurePointSupported", helper.exposurePointSupported.ToString());
             cameraProps.Add("exposureRange", helper.exposureRange.max + "x" + helper.exposureRange.min);
             cameraProps.Add("fieldOfView", helper.fieldOfView.width + "x" + helper.fieldOfView.height);
             cameraProps.Add("flashMode", helper.flashMode.ToString());
             cameraProps.Add("flashSupported", helper.flashSupported.ToString());
             cameraProps.Add("focusLock", helper.focusLock.ToString());
             cameraProps.Add("focusLockSupported", helper.focusLockSupported.ToString());
+            cameraProps.Add("focusPointSupported", helper.focusPointSupported.ToString());
             cameraProps.Add("frameRate", helper.frameRate.ToString());
             cameraProps.Add("frontFacing", helper.frontFacing.ToString());
             cameraProps.Add("photoResolution", helper.photoResolution.width + "x" + helper.photoResolution.height);
@@ -194,7 +209,7 @@ namespace NatDeviceWithOpenCVForUnityExample
             cameraProps.Add("running", helper.running.ToString());
             cameraProps.Add("torchEnabled", helper.torchEnabled.ToString());
             cameraProps.Add("torchSupported", helper.torchSupported.ToString());
-            cameraProps.Add("uniqueID", helper.uniqueID.ToString());
+            cameraProps.Add("uniqueID", helper.uniqueID);
             cameraProps.Add("whiteBalanceLock", helper.whiteBalanceLock.ToString());
             cameraProps.Add("whiteBalanceLockSupported", helper.whiteBalanceLockSupported.ToString());
             cameraProps.Add("zoomRange", helper.zoomRange.max + "x" + helper.zoomRange.min);
@@ -203,7 +218,7 @@ namespace NatDeviceWithOpenCVForUnityExample
             if (fpsMonitor != null)
             {
                 fpsMonitor.boxWidth = 240;
-                fpsMonitor.boxHeight = 800;
+                fpsMonitor.boxHeight = 860;
                 fpsMonitor.LocateGUI();
 
                 foreach (string key in cameraProps.Keys)

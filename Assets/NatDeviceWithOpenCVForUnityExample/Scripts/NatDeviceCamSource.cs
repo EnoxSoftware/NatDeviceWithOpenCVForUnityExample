@@ -1,14 +1,10 @@
 using NatSuite.Devices;
+using OpenCVForUnity.CoreModule;
+using OpenCVForUnity.UtilsModule;
 using System;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using UnityEngine;
-using OpenCVForUnity.UtilsModule;
-using OpenCVForUnity.CoreModule;
-
-#if OPENCV_USE_UNSAFE_CODE && UNITY_2018_2_OR_NEWER
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Collections;
-#endif
 
 namespace NatDeviceWithOpenCVForUnityExample
 {
@@ -20,16 +16,8 @@ namespace NatDeviceWithOpenCVForUnityExample
 
         private Action startCallback, frameCallback;
         private int requestedWidth, requestedHeight, requestedFramerate;
-        private bool firstFrame;
         private MediaDeviceQuery deviceQuery;
-
-        private NatDeviceCamSourceAttachment attachment;
-        private class NatDeviceCamSourceAttachment : MonoBehaviour
-        {
-            public Action @delegate;
-            void Awake() => DontDestroyOnLoad(this.gameObject);
-            void Update() => @delegate?.Invoke();
-        }
+        private byte[] previewPixelBuffer;
 
         #endregion
 
@@ -44,9 +32,7 @@ namespace NatDeviceWithOpenCVForUnityExample
 
         public bool isFrontFacing { get { return activeCamera != null ? activeCamera.frontFacing : false; } }
 
-        public Texture2D preview { get; private set; }
-
-        public ICameraDevice activeCamera { get; private set; }
+        public CameraDevice activeCamera { get; private set; }
 
         public NatDeviceCamSource(int width, int height, int framerate = 30, bool front = false)
         {
@@ -55,27 +41,26 @@ namespace NatDeviceWithOpenCVForUnityExample
             requestedFramerate = framerate;
 
             // Create a device query for device cameras
-            // Use `GenericCameraDevice` so we also capture WebCamTexture cameras
-            deviceQuery = new MediaDeviceQuery(MediaDeviceQuery.Criteria.GenericCameraDevice);
+            deviceQuery = new MediaDeviceQuery(MediaDeviceCriteria.CameraDevice);
 
             // Pick camera
-            if (deviceQuery.devices.Length == 0)
+            if (deviceQuery.count == 0)
             {
                 Debug.LogError("Camera device does not exist.");
                 return;
             }
 
-            for (var i = 0; i < deviceQuery.devices.Length; i++)
+            for (var i = 0; i < deviceQuery.count; i++)
             {
-                activeCamera = deviceQuery.currentDevice as ICameraDevice;
-                if (activeCamera.frontFacing == front) break;
+                activeCamera = deviceQuery.current as CameraDevice;
+                if (activeCamera != null && activeCamera.frontFacing == front) break;
                 deviceQuery.Advance();
+                activeCamera = null;
             }
 
-            if (activeCamera == null || activeCamera.frontFacing != front)
+            if (activeCamera == null)
             {
                 Debug.LogError("Camera is null. Consider using " + (front ? "rear" : "front") + " camera.");
-                activeCamera = null;
                 return;
             }
 
@@ -88,11 +73,6 @@ namespace NatDeviceWithOpenCVForUnityExample
             StopRunning();
 
             activeCamera = null;
-            if (preview != null)
-            {
-                Texture2D.Destroy(preview);
-                preview = null;
-            }
         }
 
         public async Task StartRunning(Action startCallback, Action frameCallback)
@@ -103,24 +83,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             this.startCallback = startCallback;
             this.frameCallback = frameCallback;
 
-            preview = await activeCamera.StartRunning();
-            width = preview.width;
-            height = preview.height;
-            isRunning = true;
-            firstFrame = true;
-
-            attachment = new GameObject("NatDeviceWithOpenCVForUnityExample NatDeviceCamSource Helper").AddComponent<NatDeviceCamSourceAttachment>();
-            attachment.@delegate = () => {
-                if (firstFrame)
-                {
-                    startCallback();
-                    firstFrame = false;
-                }
-                else
-                {
-                    frameCallback();
-                }
-            };
+            activeCamera.StartRunning(OnPixelBufferReceived);
+            await Task.Yield();
         }
 
         public void StopRunning()
@@ -128,78 +92,34 @@ namespace NatDeviceWithOpenCVForUnityExample
             if (activeCamera == null || !isRunning)
                 return;
 
-            if (attachment != null)
-            {
-                attachment.@delegate = default;
-                NatDeviceCamSourceAttachment.Destroy(attachment.gameObject);
-                attachment = default;
-            }
+            isRunning = false;
+            previewPixelBuffer = null;
 
             activeCamera.StopRunning();
-            isRunning = false;
         }
 
         public void CaptureFrame(Mat matrix)
         {
-            if (preview == null) return;
+            if (previewPixelBuffer == null) return;
 
-#if OPENCV_USE_UNSAFE_CODE && UNITY_2018_2_OR_NEWER
-            unsafe
-            {
-                var ptr = (IntPtr)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(preview.GetRawTextureData<byte>());
-                MatUtils.copyToMat(ptr, matrix);
-            }
+            MatUtils.copyToMat(previewPixelBuffer, matrix);
             Core.flip(matrix, matrix, 0);
-#else
-            MatUtils.copyToMat(preview.GetRawTextureData(), matrix);
-            Core.flip(matrix, matrix, 0);
-#endif
         }
 
         public void CaptureFrame(Color32[] pixelBuffer)
         {
-            if (preview == null) return;
+            if (previewPixelBuffer == null) return;
 
-#if OPENCV_USE_UNSAFE_CODE && UNITY_2018_2_OR_NEWER
-            unsafe
-            {
-                NativeArray<Color32> rawTextureData = preview.GetRawTextureData<Color32>();
-                int size = UnsafeUtility.SizeOf<Color32>() * rawTextureData.Length;
-                Color32* srcAddr = (Color32*)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(rawTextureData);
-
-                fixed (Color32* dstAddr = pixelBuffer)
-                {
-                    UnsafeUtility.MemCpy(dstAddr, srcAddr, size);
-                }
-            }
-#else
-            byte[] rawTextureData = preview.GetRawTextureData();
             GCHandle pin = GCHandle.Alloc(pixelBuffer, GCHandleType.Pinned);
-            Marshal.Copy(rawTextureData, 0, pin.AddrOfPinnedObject(), rawTextureData.Length);
+            Marshal.Copy(previewPixelBuffer, 0, pin.AddrOfPinnedObject(), previewPixelBuffer.Length);
             pin.Free();
-#endif
         }
 
         public void CaptureFrame(byte[] pixelBuffer)
         {
-            if (preview == null) return;
+            if (previewPixelBuffer == null) return;
 
-#if OPENCV_USE_UNSAFE_CODE && UNITY_2018_2_OR_NEWER
-            unsafe
-            {
-                NativeArray<byte> rawTextureData = preview.GetRawTextureData<byte>();
-                int size = UnsafeUtility.SizeOf<byte>() * rawTextureData.Length;
-                byte* srcAddr = (byte*)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(rawTextureData);
-
-                fixed (byte* dstAddr = pixelBuffer)
-                {
-                    UnsafeUtility.MemCpy(dstAddr, srcAddr, size);
-                }
-            }
-#else
-            byte[] rawTextureData = preview.GetRawTextureData();
-            Buffer.BlockCopy(rawTextureData, 0, pixelBuffer, 0, rawTextureData.Length);
-#endif
+            Buffer.BlockCopy(previewPixelBuffer, 0, pixelBuffer, 0, previewPixelBuffer.Length);
         }
 
         public async Task SwitchCamera()
@@ -212,7 +132,7 @@ namespace NatDeviceWithOpenCVForUnityExample
             Dispose();
 
             deviceQuery.Advance();
-            activeCamera = deviceQuery.currentDevice as ICameraDevice;
+            activeCamera = deviceQuery.current as CameraDevice;
 
             activeCamera.previewResolution = (width: requestedWidth, height: requestedHeight);
             activeCamera.frameRate = requestedFramerate;
@@ -221,6 +141,31 @@ namespace NatDeviceWithOpenCVForUnityExample
 
             if (!_isRunning)
                 StopRunning();
+        }
+
+        #endregion
+
+
+        #region --Operations--
+
+        private void OnPixelBufferReceived(byte[] pixelBuffer, int width, int height, long timestamp)
+        {
+            bool firstFrame = previewPixelBuffer == null;
+
+            if (firstFrame)
+            {
+                previewPixelBuffer = pixelBuffer;
+                this.width = width;
+                this.height = height;
+
+                isRunning = true;
+
+                startCallback();
+            }
+            else
+            {
+                frameCallback();
+            }
         }
 
         #endregion

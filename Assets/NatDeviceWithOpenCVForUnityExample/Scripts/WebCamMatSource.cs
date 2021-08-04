@@ -102,7 +102,7 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             var startTask = new TaskCompletionSource<bool>();
 
-            if(activeCamera == null || (activeCamera != null && activeCamera.isPlaying))
+            if (activeCamera == null || (activeCamera != null && activeCamera.isPlaying))
                 return startTask.Task;
 
             this.startCallback = startCallback;
@@ -111,7 +111,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             activeCamera.Play();
 
             attachment = new GameObject("NatDeviceWithOpenCVForUnityExample WebCamMatSource Helper").AddComponent<WebCamMatSourceAttachment>();
-            attachment.@delegate = () => {
+            attachment.@delegate = () =>
+            {
                 OnFrame();
             };
 

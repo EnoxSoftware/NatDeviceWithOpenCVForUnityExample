@@ -1,4 +1,5 @@
-﻿using NatSuite.Sharing;
+﻿using NatSuite.Devices;
+using NatSuite.Sharing;
 using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.ImgprocModule;
 using OpenCVForUnity.UnityUtils;
@@ -34,6 +35,25 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             base.Start();
 
+            fpsMonitor = GetComponent<FpsMonitor>();
+            if (fpsMonitor != null)
+            {
+                fpsMonitor.Add("Name", "IntegrationWithNatShareExample");
+                fpsMonitor.Add("onFrameFPS", onFrameFPS.ToString("F1"));
+                fpsMonitor.Add("drawFPS", drawFPS.ToString("F1"));
+                fpsMonitor.Add("width", "");
+                fpsMonitor.Add("height", "");
+                fpsMonitor.Add("isFrontFacing", "");
+                fpsMonitor.Add("orientation", "");
+            }
+
+            // Request camera permissions
+            if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
+            {
+                Debug.LogError("User did not grant camera permissions");
+                return;
+            }
+
             // Load global camera benchmark settings.
             int width, height, framerate;
             NatDeviceWithOpenCVForUnityExample.CameraConfiguration(out width, out height, out framerate);
@@ -47,18 +67,6 @@ namespace NatDeviceWithOpenCVForUnityExample
 
             exampleTitle = "[NatDeviceWithOpenCVForUnity Example] (" + NatDeviceWithOpenCVForUnityExample.GetNatDeviceVersion() + ")";
             exampleSceneTitle = "- Integration With NatShare Example";
-
-            fpsMonitor = GetComponent<FpsMonitor>();
-            if (fpsMonitor != null)
-            {
-                fpsMonitor.Add("Name", "IntegrationWithNatShareExample");
-                fpsMonitor.Add("onFrameFPS", onFrameFPS.ToString("F1"));
-                fpsMonitor.Add("drawFPS", drawFPS.ToString("F1"));
-                fpsMonitor.Add("width", "");
-                fpsMonitor.Add("height", "");
-                fpsMonitor.Add("isFrontFacing", "");
-                fpsMonitor.Add("orientation", "");
-            }
         }
 
         protected override void OnStart()
@@ -140,6 +148,24 @@ namespace NatDeviceWithOpenCVForUnityExample
             comicFilter = null;
         }
 
+        protected virtual async void OnApplicationPause(bool pauseStatus)
+        {
+            if (cameraSource == null || cameraSource.activeCamera == null)
+                return;
+
+            // The developer needs to do the camera suspend process oneself so that it is synchronized with the app suspend.
+            if (pauseStatus)
+            {
+                if (cameraSource.isRunning)
+                    cameraSource.StopRunning();
+            }
+            else
+            {
+                if (!cameraSource.isRunning)
+                    await cameraSource.StartRunning(OnStart, OnFrame);
+            }
+        }
+
         public async void OnShareButtonClick()
         {
             var mes = "";
@@ -147,10 +173,10 @@ namespace NatDeviceWithOpenCVForUnityExample
 #if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
             try
             {
-                var success = await new SharePayload()
-                    .AddText("User shared image! [NatDeviceWithOpenCVForUnity Example](" + NatDeviceWithOpenCVForUnityExample.GetNatDeviceVersion() + ")")
-                    .AddImage(texture)
-                    .Commit();
+                SharePayload payload = new SharePayload();
+                payload.AddText("User shared image! [NatDeviceWithOpenCVForUnity Example](" + NatDeviceWithOpenCVForUnityExample.GetNatDeviceVersion() + ")");
+                payload.AddImage(texture);
+                var success = await payload.Commit();
 
                 mes = $"Successfully shared items: {success}";
             }
@@ -160,28 +186,23 @@ namespace NatDeviceWithOpenCVForUnityExample
             }
 #else
             mes = "NatShare Error: SharePayload is not supported on this platform";
+            await Task.Delay(100);
 #endif
 
             Debug.Log(mes);
-
-            if (fpsMonitor != null)
-            {
-                fpsMonitor.consoleText = mes;
-                await Task.Delay(2000);
-                fpsMonitor.consoleText = "";
-            }
+            if (fpsMonitor != null) fpsMonitor.Toast(mes);
         }
 
         public async void OnSaveToCameraRollButtonClick()
         {
             var mes = "";
 
-#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+ #if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
             try
             {
-                var success = await new SavePayload("NatDeviceWithOpenCVForUnityExample")
-                    .AddImage(texture)
-                    .Commit();
+                SavePayload payload = new SavePayload("NatDeviceWithOpenCVForUnityExample");
+                payload.AddImage(texture);
+                var success = await payload.Commit();
 
                 mes = $"Successfully saved items: {success}";
             }
@@ -191,16 +212,11 @@ namespace NatDeviceWithOpenCVForUnityExample
             }
 #else
             mes = "NatShare Error: SavePayload is not supported on this platform";
+            await Task.Delay(100);
 #endif
 
             Debug.Log(mes);
-
-            if (fpsMonitor != null)
-            {
-                fpsMonitor.consoleText = mes;
-                await Task.Delay(2000);
-                fpsMonitor.consoleText = "";
-            }
+            if (fpsMonitor != null) fpsMonitor.Toast(mes);
         }
     }
 }

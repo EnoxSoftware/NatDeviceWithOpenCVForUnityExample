@@ -21,14 +21,24 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             base.Start();
 
-#if !UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            fpsMonitor = GetComponent<FpsMonitor>();
+            if (fpsMonitor != null)
+            {
+                fpsMonitor.Add("Name", "NatDeviceCamPreviewOnlyExample");
+                fpsMonitor.Add("onFrameFPS", onFrameFPS.ToString("F1"));
+                fpsMonitor.Add("drawFPS", drawFPS.ToString("F1"));
+                fpsMonitor.Add("width", "");
+                fpsMonitor.Add("height", "");
+                fpsMonitor.Add("isFrontFacing", "");
+                fpsMonitor.Add("orientation", "");
+            }
+
             // Request camera permissions
             if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
             {
                 Debug.LogError("User did not grant camera permissions");
                 return;
             }
-#endif
 
             // Load global camera benchmark settings.
             int width, height, framerate;
@@ -38,17 +48,6 @@ namespace NatDeviceWithOpenCVForUnityExample
             if (cameraSource.activeCamera == null)
                 cameraSource = new NatDeviceCamSource(width, height, framerate, !useFrontCamera);
             await cameraSource.StartRunning(OnStart, OnFrame);
-
-            fpsMonitor = GetComponent<FpsMonitor>();
-            if (fpsMonitor != null)
-            {
-                fpsMonitor.Add("Name", "NatDeviceCamPreviewOnlyExample");
-                fpsMonitor.Add("onFrameFPS", onFrameFPS.ToString("F1"));
-                fpsMonitor.Add("drawFPS", drawFPS.ToString("F1"));
-                fpsMonitor.Add("width", "");
-                fpsMonitor.Add("height", "");
-                fpsMonitor.Add("orientation", "");
-            }
         }
 
         protected override void OnStart()
@@ -73,18 +72,20 @@ namespace NatDeviceWithOpenCVForUnityExample
             Debug.Log("NatDevice camera source started with resolution: " + cameraSource.width + "x" + cameraSource.height + " isFrontFacing: " + cameraSource.isFrontFacing);
             // Log camera properties
             var cameraProps = new Dictionary<string, string>();
-            var camera = cameraSource.activeCamera as CameraDevice;
+            var camera = cameraSource.activeCamera;
             if (camera != null)
             {
                 cameraProps.Add("exposureBias", camera.exposureBias.ToString());
                 cameraProps.Add("exposureLock", camera.exposureLock.ToString());
                 cameraProps.Add("exposureLockSupported", camera.exposureLockSupported.ToString());
+                cameraProps.Add("exposurePointSupported", camera.exposurePointSupported.ToString());
                 cameraProps.Add("exposureRange", camera.exposureRange.max + "x" + camera.exposureRange.min);
                 cameraProps.Add("fieldOfView", camera.fieldOfView.width + "x" + camera.fieldOfView.height);
                 cameraProps.Add("flashMode", camera.flashMode.ToString());
                 cameraProps.Add("flashSupported", camera.flashSupported.ToString());
                 cameraProps.Add("focusLock", camera.focusLock.ToString());
                 cameraProps.Add("focusLockSupported", camera.focusLockSupported.ToString());
+                cameraProps.Add("focusPointSupported", camera.focusPointSupported.ToString());
                 cameraProps.Add("frameRate", camera.frameRate.ToString());
                 cameraProps.Add("frontFacing", camera.frontFacing.ToString());
                 cameraProps.Add("photoResolution", camera.photoResolution.width + "x" + camera.photoResolution.height);
@@ -108,10 +109,11 @@ namespace NatDeviceWithOpenCVForUnityExample
             {
                 fpsMonitor.Add("width", cameraSource.width.ToString());
                 fpsMonitor.Add("height", cameraSource.height.ToString());
+                fpsMonitor.Add("isFrontFacing", cameraSource.isFrontFacing.ToString());
                 fpsMonitor.Add("orientation", Screen.orientation.ToString());
 
                 fpsMonitor.boxWidth = 240;
-                fpsMonitor.boxHeight = 800;
+                fpsMonitor.boxHeight = 830;
                 fpsMonitor.LocateGUI();
 
                 foreach (string key in cameraProps.Keys)
@@ -149,6 +151,24 @@ namespace NatDeviceWithOpenCVForUnityExample
             Texture2D.Destroy(texture);
             texture = null;
             pixelBuffer = null;
+        }
+
+        protected virtual async void OnApplicationPause(bool pauseStatus)
+        {
+            if (cameraSource == null || cameraSource.activeCamera == null)
+                return;
+
+            // The developer needs to do the camera suspend process oneself so that it is synchronized with the app suspend.
+            if (pauseStatus)
+            {
+                if (cameraSource.isRunning)
+                    cameraSource.StopRunning();
+            }
+            else
+            {
+                if (!cameraSource.isRunning)
+                    await cameraSource.StartRunning(OnStart, OnFrame);
+            }
         }
     }
 }

@@ -1,27 +1,44 @@
 ﻿using NatSuite.Devices;
 using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.ImgprocModule;
-using OpenCVForUnity.UnityUtils;
 using OpenCVForUnity.UnityUtils.Helper;
+using OpenCVForUnity.UtilsModule;
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 {
     /// <summary>
+    /// This is called every time there is the current frame image mat available.
+    /// The Mat object's type is 'CV_8UC4' or 'CV_8UC3' or 'CV_8UC1' (ColorFormat is determined by the outputColorFormat setting).
+    /// </summary>
+    /// <param name="mat">The recently captured frame image mat.</param>
+    /// <param name="width">Pixel buffer width.</param>
+    /// <param name="height">Pixel buffer width.</param>
+    /// <param name="timestamp">Pixel buffer timestamp in nanoseconds.</param>
+    public delegate void FrameMatAcquiredCallback(Mat mat, int width, int height, long timestamp);
+
+    /// <summary>
     /// NatDeviceCamPreview to mat helper.
-    /// v 1.0.1
-    /// Depends on NatDevice version 1.0.0 or later.
-    /// Depends on OpenCVForUnity version 2.4.1 (WebCamTextureToMatHelper v 1.1.2) or later.
+    /// v 1.0.2
+    /// Depends on NatDevice version 1.1.0 or later.
+    /// Depends on OpenCVForUnity version 2.4.4 (WebCamTextureToMatHelper v 1.1.3 or later.
     /// </summary>
     public class NatDeviceCamPreviewToMatHelper : WebCamTextureToMatHelper
     {
+        /// <summary>
+        /// This will be called whenever the current frame image available is converted to Mat.
+        /// The Mat object's type is 'CV_8UC4' or 'CV_8UC3' or 'CV_8UC1' (ColorFormat is determined by the outputColorFormat setting).
+        /// You must properly initialize the NatDeviceCamPreviewToMatHelper, 
+        /// including calling Play() before this event will begin firing.
+        /// </summary>
+        public virtual event FrameMatAcquiredCallback frameMatAcquired;
+
+
         #region --NatDevice CameraDevice Properties--
 
         public virtual bool running => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().running : default;
-
 
         public virtual string uniqueID => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().uniqueID : default;
 
@@ -33,7 +50,11 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
         public virtual bool exposureLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureLockSupported : default;
 
+        public virtual bool exposurePointSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposurePointSupported : default;
+
         public virtual bool focusLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusLockSupported : default;
+
+        public virtual bool focusPointSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusPointSupported : default;
 
         public virtual bool whiteBalanceLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().whiteBalanceLockSupported : default;
 
@@ -122,14 +143,14 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().zoomRatio = value; }
         }
 
-        public virtual FrameOrientation orientation
+        public virtual ScreenOrientation orientation
         {
             set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().orientation = value; }
         }
         #endregion
 
 
-#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR && !DISABLE_NATDEVICE_API
+#if (UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
 
         public override float requestedFPS
         {
@@ -146,9 +167,84 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
         protected bool isStartWaiting = false;
         protected bool didUpdateThisFrame = false;
-        protected MediaDeviceQuery deviceQuery;
+        protected bool didUpdatePreviewPixelBufferInCurrentFrame = false;
         protected CameraDevice cameraDevice;
-        protected Texture2D preview;
+
+        protected byte[] previewPixelBuffer;
+        protected int previewWidth;
+        protected int previewHeight;
+
+        protected bool didCameraRunningBeforeSuspend = false;
+
+        protected virtual void LateUpdate()
+        {
+#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+            didUpdateThisFrame = false;
+#else
+            if (didUpdateThisFrame && !didUpdatePreviewPixelBufferInCurrentFrame)
+                didUpdateThisFrame = false;
+
+            didUpdatePreviewPixelBufferInCurrentFrame = false;
+#endif
+        }
+
+        protected virtual IEnumerator OnApplicationPause(bool pauseStatus)
+        {
+            while (isStartWaiting)
+            {
+                yield return null;
+            }
+
+            if (!hasInitDone)
+                yield break;
+
+            // The developer needs to do the camera suspend process oneself so that it is synchronized with the app suspend.
+            if (pauseStatus)
+            {
+                didCameraRunningBeforeSuspend = cameraDevice.running;
+
+                if (cameraDevice.running)
+                {
+                    cameraDevice.StopRunning();
+                    didUpdateThisFrame = false;
+                    didUpdatePreviewPixelBufferInCurrentFrame = false;
+                }
+            }
+            else
+            {
+                if (!cameraDevice.running && didCameraRunningBeforeSuspend)
+                {
+                    isStartWaiting = true;
+                    cameraDevice.StartRunning(OnPixelBufferReceived);
+                }
+            }
+        }
+
+        private void OnPixelBufferReceived(byte[] pixelBuffer, int width, int height, long timestamp)
+        {
+            bool firstFrame = previewPixelBuffer == null;
+
+            if (firstFrame)
+            {
+                previewPixelBuffer = pixelBuffer;
+                previewWidth = width;
+                previewHeight = height;
+            }
+
+            if (isStartWaiting)
+            {
+                isStartWaiting = false;
+                previewPixelBuffer = pixelBuffer;
+            }
+
+            didUpdateThisFrame = true;
+            didUpdatePreviewPixelBufferInCurrentFrame = true;
+
+            if (hasInitDone && frameMatAcquired != null)
+            {
+                frameMatAcquired.Invoke(GetMat(), width, height, timestamp);
+            }
+        }
 
         // Update is called once per frame
         protected override void Update()
@@ -156,22 +252,9 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             if (hasInitDone)
             {
                 // Catch the orientation change of the screen and correct the mat image to the correct direction.
-                if (screenOrientation != Screen.orientation && (screenWidth != Screen.width || screenHeight != Screen.height))
+                if (screenOrientation != Screen.orientation)
                 {
-                    switch (Screen.orientation)
-                    {
-                        case ScreenOrientation.LandscapeLeft: cameraDevice.orientation = FrameOrientation.LandscapeLeft; break;
-                        case ScreenOrientation.Portrait: cameraDevice.orientation = FrameOrientation.Portrait; break;
-                        case ScreenOrientation.LandscapeRight: cameraDevice.orientation = FrameOrientation.LandscapeRight; break;
-                        case ScreenOrientation.PortraitUpsideDown: cameraDevice.orientation = FrameOrientation.PortraitUpsideDown; break;
-                    }
-
                     Initialize();
-                }
-                else
-                {
-                    screenWidth = Screen.width;
-                    screenHeight = Screen.height;
                 }
             }
         }
@@ -230,54 +313,53 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
 
             // Creates the camera
-            deviceQuery = deviceQuery ?? new MediaDeviceQuery(MediaDeviceQuery.Criteria.CameraDevice);
+            MediaDeviceQuery deviceQuery = new MediaDeviceQuery(MediaDeviceCriteria.CameraDevice);
 
             if (!String.IsNullOrEmpty(requestedDeviceName))
             {
                 int requestedDeviceIndex = -1;
                 if (Int32.TryParse(requestedDeviceName, out requestedDeviceIndex))
                 {
-                    if (requestedDeviceIndex >= 0 && requestedDeviceIndex < deviceQuery.devices.Length)
+                    if (requestedDeviceIndex >= 0 && requestedDeviceIndex < deviceQuery.count)
                     {
-                        cameraDevice = deviceQuery.currentDevice as CameraDevice;
+                        cameraDevice = deviceQuery[requestedDeviceIndex] as CameraDevice;
                     }
                 }
                 else
                 {
-                    for (int cameraIndex = 0; cameraIndex < deviceQuery.devices.Length; cameraIndex++)
+                    for (int cameraIndex = 0; cameraIndex < deviceQuery.count; cameraIndex++)
                     {
-                        if (deviceQuery.currentDevice.uniqueID == requestedDeviceName)
+                        if (deviceQuery[cameraIndex].uniqueID == requestedDeviceName)
                         {
-                            cameraDevice = deviceQuery.currentDevice as CameraDevice;
+                            cameraDevice = deviceQuery[cameraIndex] as CameraDevice;
                             break;
                         }
-                        deviceQuery.Advance();
                     }
                 }
                 if (cameraDevice == null)
                     Debug.Log("Cannot find camera device " + requestedDeviceName + ".");
             }
-            
+
             if (cameraDevice == null)
             {
                 // Checks how many and which cameras are available on the device
-                for (int cameraIndex = 0; cameraIndex < deviceQuery.devices.Length; cameraIndex++)
+                for (int cameraIndex = 0; cameraIndex < deviceQuery.count; cameraIndex++)
                 {
-                    cameraDevice = deviceQuery.currentDevice as CameraDevice;
+                    cameraDevice = deviceQuery[cameraIndex] as CameraDevice;
 
                     if (cameraDevice != null && cameraDevice.frontFacing == requestedIsFrontFacing)
                     {
                         break;
                     }
-                    deviceQuery.Advance();
+                    cameraDevice = null;
                 }
             }
-            
+
             if (cameraDevice == null)
             {
-                if (deviceQuery.devices.Length > 0)
+                if (deviceQuery.count > 0)
                 {
-                    cameraDevice = deviceQuery.currentDevice as CameraDevice;
+                    cameraDevice = deviceQuery[0] as CameraDevice;
                 }
 
                 if (cameraDevice == null)
@@ -299,45 +381,15 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             // Starts the camera
             isStartWaiting = true;
             didUpdateThisFrame = false;
-            bool isError = false;
-            cameraDevice.StartRunning().ContinueWith(
-                task => {
-                    if (task.Exception == null)
-                    {
-                        preview = task.Result;
+            didUpdatePreviewPixelBufferInCurrentFrame = false;
 
-                        didUpdateThisFrame = true;
-                    }
-                    else
-                    {
-                        isError = true;
-
-                        Debug.LogError(task.Exception.Message);
-                    }
-                    isStartWaiting = false;
-                },
-                TaskContinuationOptions.ExecuteSynchronously
-                );
-
+            cameraDevice.StartRunning(OnPixelBufferReceived);
 
             int initFrameCount = 0;
             bool isTimeout = false;
 
             while (true)
             {
-                if (isError)
-                {
-                    cameraDevice = null;
-
-                    isInitWaiting = false;
-                    initCoroutine = null;
-
-                    if (onErrorOccurred != null)
-                        onErrorOccurred.Invoke(ErrorCode.UNKNOWN);
-
-                    break;
-                }
-
                 if (initFrameCount > timeoutFrameCount)
                 {
                     isTimeout = true;
@@ -345,11 +397,10 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                 }
                 else if (didUpdateThisFrame)
                 {
-
-                    Debug.Log("NatDeviceCamPreviewToMatHelper:: " + "UniqueID:" + cameraDevice.uniqueID + " width:" + preview.width + " height:" + preview.height + " fps:" + cameraDevice.frameRate
+                    Debug.Log("NatDeviceCamPreviewToMatHelper:: " + "UniqueID:" + cameraDevice.uniqueID + " width:" + previewWidth + " height:" + previewHeight + " fps:" + cameraDevice.frameRate
                     + " isFrongFacing:" + cameraDevice.frontFacing);
 
-                    baseMat = new Mat(preview.height, preview.width, CvType.CV_8UC4);
+                    baseMat = new Mat(previewHeight, previewWidth, CvType.CV_8UC4);
 
                     if (baseColorFormat == outputColorFormat)
                     {
@@ -416,22 +467,8 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             if (!hasInitDone || cameraDevice.running) yield break;
 
             isStartWaiting = true;
-            cameraDevice.StartRunning().ContinueWith(
-                task => {
-                    if (task.Exception == null)
-                    {
-                        preview = task.Result;
 
-                        didUpdateThisFrame = true;
-                    }
-                    else
-                    {
-                        Debug.LogError(task.Exception.Message);
-                    }
-                    isStartWaiting = false;
-                },
-                TaskContinuationOptions.ExecuteSynchronously
-                );
+            cameraDevice.StartRunning(OnPixelBufferReceived);
         }
 
         /// <summary>
@@ -462,6 +499,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
             cameraDevice.StopRunning();
             didUpdateThisFrame = false;
+            didUpdatePreviewPixelBufferInCurrentFrame = false;
         }
 
         /// <summary>
@@ -528,14 +566,14 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         /// <returns>The NatDevice camera device.</returns>
         public virtual CameraDevice GetNatDeviceCameraDevice()
         {
-#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR && !DISABLE_NATDEVICE_API
+#if (UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
             return cameraDevice;
 #else
             return null;
 #endif
         }
 
-#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR && !DISABLE_NATDEVICE_API
+#if (UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
         /// <summary>
         /// Gets the mat of the current frame.
         /// The Mat object's type is 'CV_8UC4' or 'CV_8UC3' or 'CV_8UC1' (ColorFormat is determined by the outputColorFormat setting).
@@ -544,24 +582,40 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         /// <returns>The mat of the current frame.</returns>
         public override Mat GetMat()
         {
-            if (!hasInitDone || !cameraDevice.running)
+            if (!hasInitDone || !cameraDevice.running || previewPixelBuffer == null)
             {
                 return (rotatedFrameMat != null) ? rotatedFrameMat : frameMat;
             }
 
             if (baseColorFormat == outputColorFormat)
             {
-                Utils.fastTexture2DToMat(preview, frameMat, false);
+                if (baseMat.IsDisposed)
+                {
+                    baseMat = new Mat(previewHeight, previewWidth, CvType.CV_8UC4);
+                    frameMat = baseMat;
+                }
+
+                MatUtils.copyToMat(previewPixelBuffer, frameMat);
             }
             else
             {
-                Utils.fastTexture2DToMat(preview, baseMat, false);
+                if (frameMat.IsDisposed)
+                {
+                    frameMat = new Mat(baseMat.rows(), baseMat.cols(), CvType.CV_8UC(Channels(outputColorFormat)));
+                }
+
+                MatUtils.copyToMat(previewPixelBuffer, baseMat);
                 Imgproc.cvtColor(baseMat, frameMat, ColorConversionCodes(baseColorFormat, outputColorFormat));
             }
 
             FlipMat(frameMat, flipVertical, flipHorizontal);
             if (rotatedFrameMat != null)
             {
+                if (rotatedFrameMat.IsDisposed)
+                {
+                    rotatedFrameMat = new Mat(frameMat.cols(), frameMat.rows(), CvType.CV_8UC(Channels(outputColorFormat)));
+                }
+
                 Core.rotate(frameMat, rotatedFrameMat, Core.ROTATE_90_CLOCKWISE);
                 return rotatedFrameMat;
             }
@@ -633,9 +687,10 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             isInitWaiting = false;
             hasInitDone = false;
 
-            preview = null;
+            previewPixelBuffer = null;
 
             didUpdateThisFrame = false;
+            didUpdatePreviewPixelBufferInCurrentFrame = false;
 
             if (frameMat != null)
             {
@@ -671,6 +726,8 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
                 CancelInitCoroutine();
 
+                frameMatAcquired = null;
+
                 if (cameraDevice != null)
                 {
                     if (this != null && this.isActiveAndEnabled)
@@ -681,6 +738,8 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             }
             else if (hasInitDone)
             {
+                frameMatAcquired = null;
+
                 if (this != null && this.isActiveAndEnabled)
                     StartCoroutine(_Dispose());
 

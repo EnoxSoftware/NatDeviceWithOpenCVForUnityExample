@@ -11,7 +11,7 @@ namespace NatDeviceWithOpenCVForUnityExample
 
         public static string GetNatDeviceVersion()
         {
-            return "1.0.2";
+            return "1.1.0";
         }
 
         public enum FrameratePreset

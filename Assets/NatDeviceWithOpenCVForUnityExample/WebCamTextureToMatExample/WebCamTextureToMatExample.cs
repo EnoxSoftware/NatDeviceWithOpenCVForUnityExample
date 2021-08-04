@@ -21,15 +21,6 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             base.Start();
 
-            // Load global camera benchmark settings.
-            int width, height, framerate;
-            NatDeviceWithOpenCVForUnityExample.CameraConfiguration(out width, out height, out framerate);
-            // Create camera source
-            cameraSource = new WebCamMatSource(width, height, framerate, useFrontCamera);
-            if (!cameraSource.activeCamera)
-                cameraSource = new WebCamMatSource(width, height, framerate, !useFrontCamera);
-            await cameraSource.StartRunning(OnStart, OnFrame);
-
             fpsMonitor = GetComponent<FpsMonitor>();
             if (fpsMonitor != null)
             {
@@ -41,6 +32,15 @@ namespace NatDeviceWithOpenCVForUnityExample
                 fpsMonitor.Add("isFrontFacing", "");
                 fpsMonitor.Add("orientation", "");
             }
+
+            // Load global camera benchmark settings.
+            int width, height, framerate;
+            NatDeviceWithOpenCVForUnityExample.CameraConfiguration(out width, out height, out framerate);
+            // Create camera source
+            cameraSource = new WebCamMatSource(width, height, framerate, useFrontCamera);
+            if (!cameraSource.activeCamera)
+                cameraSource = new WebCamMatSource(width, height, framerate, !useFrontCamera);
+            await cameraSource.StartRunning(OnStart, OnFrame);
         }
 
         protected override void OnStart()

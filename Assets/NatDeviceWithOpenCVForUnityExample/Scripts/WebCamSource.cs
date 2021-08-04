@@ -105,7 +105,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             activeCamera.Play();
 
             attachment = new GameObject("NatDeviceWithOpenCVForUnityExample WebCamSource Helper").AddComponent<WebCamSourceAttachment>();
-            attachment.@delegate = () => {
+            attachment.@delegate = () =>
+            {
                 OnFrame();
             };
 

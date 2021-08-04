@@ -1,17 +1,8 @@
 ﻿using NatSuite.Devices;
 using OpenCVForUnity.CoreModule;
-using OpenCVForUnity.ImgprocModule;
 using OpenCVForUnity.UnityUtils;
-using OpenCVForUnity.UtilsModule;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
-
-#if OPENCV_USE_UNSAFE_CODE && UNITY_2018_2_OR_NEWER
-using System;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Collections;
-#endif
 
 namespace NatDeviceWithOpenCVForUnityExample
 {
@@ -22,16 +13,6 @@ namespace NatDeviceWithOpenCVForUnityExample
     /// </summary>
     public class NatDeviceCamPreviewToMatExample : ExampleBase<NatDeviceCamSource>
     {
-
-        public enum MatCaptureMethod
-        {
-            GetRawTextureData_ByteArray,
-            GetRawTextureData_NativeArray,
-        }
-
-        [Header("OpenCV")]
-        public MatCaptureMethod matCaptureMethod = MatCaptureMethod.GetRawTextureData_ByteArray;
-        public Dropdown matCaptureMethodDropdown;
 
         Mat frameMatrix;
         Mat grayMatrix;
@@ -45,14 +26,24 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             base.Start();
 
-#if !UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            fpsMonitor = GetComponent<FpsMonitor>();
+            if (fpsMonitor != null)
+            {
+                fpsMonitor.Add("Name", "NatDeviceCamPreviewToMatExample");
+                fpsMonitor.Add("onFrameFPS", onFrameFPS.ToString("F1"));
+                fpsMonitor.Add("drawFPS", drawFPS.ToString("F1"));
+                fpsMonitor.Add("width", "");
+                fpsMonitor.Add("height", "");
+                fpsMonitor.Add("isFrontFacing", "");
+                fpsMonitor.Add("orientation", "");
+            }
+
             // Request camera permissions
             if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
             {
                 Debug.LogError("User did not grant camera permissions");
                 return;
             }
-#endif
 
             // Load global camera benchmark settings.
             int width, height, framerate;
@@ -62,19 +53,6 @@ namespace NatDeviceWithOpenCVForUnityExample
             if (cameraSource.activeCamera == null)
                 cameraSource = new NatDeviceCamSource(width, height, framerate, !useFrontCamera);
             await cameraSource.StartRunning(OnStart, OnFrame);
-            // Update UI
-            matCaptureMethodDropdown.value = (int)matCaptureMethod;
-
-            fpsMonitor = GetComponent<FpsMonitor>();
-            if (fpsMonitor != null)
-            {
-                fpsMonitor.Add("Name", "NatDeviceCamPreviewToMatExample");
-                fpsMonitor.Add("onFrameFPS", onFrameFPS.ToString("F1"));
-                fpsMonitor.Add("drawFPS", drawFPS.ToString("F1"));
-                fpsMonitor.Add("width", "");
-                fpsMonitor.Add("height", "");
-                fpsMonitor.Add("orientation", "");
-            }
         }
 
         protected override void OnStart()
@@ -110,12 +88,14 @@ namespace NatDeviceWithOpenCVForUnityExample
                 cameraProps.Add("exposureBias", camera.exposureBias.ToString());
                 cameraProps.Add("exposureLock", camera.exposureLock.ToString());
                 cameraProps.Add("exposureLockSupported", camera.exposureLockSupported.ToString());
+                cameraProps.Add("exposurePointSupported", camera.exposurePointSupported.ToString());
                 cameraProps.Add("exposureRange", camera.exposureRange.max + "x" + camera.exposureRange.min);
                 cameraProps.Add("fieldOfView", camera.fieldOfView.width + "x" + camera.fieldOfView.height);
                 cameraProps.Add("flashMode", camera.flashMode.ToString());
                 cameraProps.Add("flashSupported", camera.flashSupported.ToString());
                 cameraProps.Add("focusLock", camera.focusLock.ToString());
                 cameraProps.Add("focusLockSupported", camera.focusLockSupported.ToString());
+                cameraProps.Add("focusPointSupported", camera.focusPointSupported.ToString());
                 cameraProps.Add("frameRate", camera.frameRate.ToString());
                 cameraProps.Add("frontFacing", camera.frontFacing.ToString());
                 cameraProps.Add("photoResolution", camera.photoResolution.width + "x" + camera.photoResolution.height);
@@ -138,10 +118,11 @@ namespace NatDeviceWithOpenCVForUnityExample
             {
                 fpsMonitor.Add("width", cameraSource.width.ToString());
                 fpsMonitor.Add("height", cameraSource.height.ToString());
+                fpsMonitor.Add("isFrontFacing", cameraSource.isFrontFacing.ToString());
                 fpsMonitor.Add("orientation", Screen.orientation.ToString());
 
                 fpsMonitor.boxWidth = 240;
-                fpsMonitor.boxHeight = 800;
+                fpsMonitor.boxHeight = 830;
                 fpsMonitor.LocateGUI();
 
                 foreach (string key in cameraProps.Keys)
@@ -167,29 +148,7 @@ namespace NatDeviceWithOpenCVForUnityExample
         protected override void UpdateTexture()
         {
             // Get the matrix
-            switch (matCaptureMethod)
-            {
-                case MatCaptureMethod.GetRawTextureData_ByteArray:
-                    MatUtils.copyToMat(cameraSource.preview.GetRawTextureData(), frameMatrix);
-                    Core.flip(frameMatrix, frameMatrix, 0);
-                    break;
-                case MatCaptureMethod.GetRawTextureData_NativeArray:
-
-#if OPENCV_USE_UNSAFE_CODE && UNITY_2018_2_OR_NEWER
-                    // non-memory allocation.
-                    unsafe
-                    {
-                        var ptr = (IntPtr)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(cameraSource.preview.GetRawTextureData<byte>());
-                        MatUtils.copyToMat(ptr, frameMatrix);
-                    }
-                    Core.flip(frameMatrix, frameMatrix, 0);
-#else
-                    MatUtils.copyToMat(cameraSource.preview.GetRawTextureData(), frameMatrix);
-                    Core.flip(frameMatrix, frameMatrix, 0);
-                    Imgproc.putText(frameMatrix, "NativeArray<T> GetRawTextureData() method can be used from Unity 2018.2 or later.", new Point(5, frameMatrix.rows() - 10), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, new Scalar(255, 255, 255, 255), 1, Imgproc.LINE_AA, false);
-#endif
-                    break;
-            }
+            cameraSource.CaptureFrame(frameMatrix);
 
             ProcessImage(frameMatrix, grayMatrix, imageProcessingType);
 
@@ -211,17 +170,24 @@ namespace NatDeviceWithOpenCVForUnityExample
             texture = null;
         }
 
-#endregion
-
-
-#region --UI Callbacks--
-
-        public void OnMatCaptureMethodDropdownValueChanged(int result)
+        protected virtual async void OnApplicationPause(bool pauseStatus)
         {
-            matCaptureMethod = (MatCaptureMethod)result;
+            if (cameraSource == null || cameraSource.activeCamera == null)
+                return;
+
+            // The developer needs to do the camera suspend process oneself so that it is synchronized with the app suspend.
+            if (pauseStatus)
+            {
+                if (cameraSource.isRunning)
+                    cameraSource.StopRunning();
+            }
+            else
+            {
+                if (!cameraSource.isRunning)
+                    await cameraSource.StartRunning(OnStart, OnFrame);
+            }
         }
 
-#endregion
-
+        #endregion
     }
 }
