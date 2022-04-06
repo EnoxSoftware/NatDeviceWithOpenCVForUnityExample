@@ -1,6 +1,7 @@
-﻿using NatSuite.Devices;
+using NatSuite.Devices;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace NatDeviceWithOpenCVForUnityExample
 {
@@ -16,6 +17,8 @@ namespace NatDeviceWithOpenCVForUnityExample
         byte[] pixelBuffer;
 
         FpsMonitor fpsMonitor;
+
+        #region --ExampleBase--
 
         protected override async void Start()
         {
@@ -34,7 +37,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             }
 
             // Request camera permissions
-            if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
+            var permissionStatus = await MediaDeviceQuery.RequestPermissions<CameraDevice>();
+            if (permissionStatus != PermissionStatus.Authorized)
             {
                 Debug.LogError("User did not grant camera permissions");
                 return;
@@ -70,24 +74,33 @@ namespace NatDeviceWithOpenCVForUnityExample
             rawImage.texture = texture;
             aspectFitter.aspectRatio = cameraSource.width / (float)cameraSource.height;
             Debug.Log("NatDevice camera source started with resolution: " + cameraSource.width + "x" + cameraSource.height + " isFrontFacing: " + cameraSource.isFrontFacing);
+
             // Log camera properties
             var cameraProps = new Dictionary<string, string>();
             var camera = cameraSource.activeCamera;
             if (camera != null)
             {
+                cameraProps.Add("defaultForMediaType", camera.defaultForMediaType.ToString());
                 cameraProps.Add("exposureBias", camera.exposureBias.ToString());
-                cameraProps.Add("exposureLock", camera.exposureLock.ToString());
-                cameraProps.Add("exposureLockSupported", camera.exposureLockSupported.ToString());
+                cameraProps.Add("exposureBiasRange", camera.exposureBiasRange.min + "x" + camera.exposureBiasRange.max);
+                cameraProps.Add("exposureDurationRange", camera.exposureDurationRange.min + "x" + camera.exposureDurationRange.max);
+                cameraProps.Add("exposureMode", camera.exposureMode.ToString());
+                cameraProps.Add("ExposureModeSupported:Continuous", camera.ExposureModeSupported(CameraDevice.ExposureMode.Continuous).ToString());
+                cameraProps.Add("ExposureModeSupported:Locked", camera.ExposureModeSupported(CameraDevice.ExposureMode.Locked).ToString());
+                cameraProps.Add("ExposureModeSupported:Manual", camera.ExposureModeSupported(CameraDevice.ExposureMode.Manual).ToString());
                 cameraProps.Add("exposurePointSupported", camera.exposurePointSupported.ToString());
-                cameraProps.Add("exposureRange", camera.exposureRange.max + "x" + camera.exposureRange.min);
                 cameraProps.Add("fieldOfView", camera.fieldOfView.width + "x" + camera.fieldOfView.height);
                 cameraProps.Add("flashMode", camera.flashMode.ToString());
                 cameraProps.Add("flashSupported", camera.flashSupported.ToString());
-                cameraProps.Add("focusLock", camera.focusLock.ToString());
-                cameraProps.Add("focusLockSupported", camera.focusLockSupported.ToString());
+                cameraProps.Add("focusMode", camera.focusMode.ToString());
+                cameraProps.Add("FocusModeSupported:Continuous", camera.FocusModeSupported(CameraDevice.FocusMode.Continuous).ToString());
+                cameraProps.Add("FocusModeSupported:Locked", camera.FocusModeSupported(CameraDevice.FocusMode.Locked).ToString());
                 cameraProps.Add("focusPointSupported", camera.focusPointSupported.ToString());
                 cameraProps.Add("frameRate", camera.frameRate.ToString());
                 cameraProps.Add("frontFacing", camera.frontFacing.ToString());
+                cameraProps.Add("ISORange", camera.ISORange.min + "x" + camera.ISORange.max);
+                cameraProps.Add("location", camera.location.ToString());
+                cameraProps.Add("name", camera.name.ToString());
                 cameraProps.Add("photoResolution", camera.photoResolution.width + "x" + camera.photoResolution.height);
                 cameraProps.Add("previewResolution", camera.previewResolution.width + "x" + camera.previewResolution.height);
                 cameraProps.Add("running", camera.running.ToString());
@@ -112,13 +125,20 @@ namespace NatDeviceWithOpenCVForUnityExample
                 fpsMonitor.Add("isFrontFacing", cameraSource.isFrontFacing.ToString());
                 fpsMonitor.Add("orientation", Screen.orientation.ToString());
 
-                fpsMonitor.boxWidth = 240;
-                fpsMonitor.boxHeight = 830;
+                fpsMonitor.boxWidth = 280;
+                fpsMonitor.boxHeight = 1030;
                 fpsMonitor.LocateGUI();
 
                 foreach (string key in cameraProps.Keys)
                     fpsMonitor.Add(key, cameraProps[key]);
             }
+
+            // Add camera device disconnection event
+            camera.onDisconnected += () =>
+            {
+                if (fpsMonitor != null)
+                    fpsMonitor.consoleText = "the camera device is disconnected.";
+            };
         }
 
         protected override void Update()
@@ -153,6 +173,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             pixelBuffer = null;
         }
 
+        #endregion
+
         protected virtual async void OnApplicationPause(bool pauseStatus)
         {
             if (cameraSource == null || cameraSource.activeCamera == null)
@@ -169,6 +191,37 @@ namespace NatDeviceWithOpenCVForUnityExample
                 if (!cameraSource.isRunning)
                     await cameraSource.StartRunning(OnStart, OnFrame);
             }
+        }
+
+        public void FocusCamera(BaseEventData e)
+        {
+            if (cameraSource == null || cameraSource.activeCamera == null)
+                return;
+
+            var cameraDevice = cameraSource.activeCamera;
+
+            // Check if focus is supported
+            if (!cameraDevice.focusPointSupported)
+                return;
+            // Get the touch position in viewport coordinates
+            var eventData = e as PointerEventData;
+            var transform = eventData.pointerPress.GetComponent<RectTransform>();
+            if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                transform,
+                eventData.pressPosition,
+                eventData.pressEventCamera,
+                out var worldPoint
+            ))
+                return;
+            var corners = new Vector3[4];
+            transform.GetWorldCorners(corners);
+            var point = worldPoint - corners[0];
+            var size = new Vector2(corners[3].x, corners[1].y) - (Vector2)corners[0];
+            // Focus camera at point
+            cameraDevice.SetFocusPoint(point.x / size.x, point.y / size.y);
+
+            if (fpsMonitor != null)
+                fpsMonitor.Toast("Set Focus Point: " + point.x / size.x + " x " + point.y / size.y);
         }
     }
 }

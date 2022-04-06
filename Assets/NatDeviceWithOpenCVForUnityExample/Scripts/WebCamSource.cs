@@ -133,6 +133,9 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             if (uprightBuffer == null) return;
 
+            if ((int)matrix.total() * (int)matrix.elemSize() != uprightBuffer.Length * 4)
+                throw new ArgumentException("matrix and CamSource image need to be the same size.");
+
             MatUtils.copyToMat(uprightBuffer, matrix);
             Core.flip(matrix, matrix, 0);
         }
@@ -141,12 +144,18 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             if (uprightBuffer == null) return;
 
+            if (pixelBuffer.Length != uprightBuffer.Length)
+                throw new ArgumentException("pixelBuffer and CamSource image need to be the same size.");
+
             Array.Copy(uprightBuffer, pixelBuffer, uprightBuffer.Length);
         }
 
         public void CaptureFrame(byte[] pixelBuffer)
         {
             if (uprightBuffer == null) return;
+
+            if (pixelBuffer.Length != uprightBuffer.Length * 4)
+                throw new ArgumentException("pixelBuffer and CamSource image need to be the same size.");
 
             GCHandle pin = GCHandle.Alloc(uprightBuffer, GCHandleType.Pinned);
             Marshal.Copy(pin.AddrOfPinnedObject(), pixelBuffer, 0, pixelBuffer.Length);

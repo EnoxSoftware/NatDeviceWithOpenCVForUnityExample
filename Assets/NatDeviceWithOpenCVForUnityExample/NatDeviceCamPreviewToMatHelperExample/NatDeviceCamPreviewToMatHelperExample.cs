@@ -1,4 +1,5 @@
 using NatDeviceWithOpenCVForUnity.UnityUtils.Helper;
+using NatSuite.Devices;
 using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.ImgprocModule;
 using OpenCVForUnity.UnityUtils;
@@ -190,26 +191,33 @@ namespace NatDeviceWithOpenCVForUnityExample
         private void UpdateNatDeviceCameraProps(NatDeviceCamPreviewToMatHelper helper)
         {
             var cameraProps = new Dictionary<string, string>();
-
-            cameraProps.Add("exposureBias", helper.exposureBias.ToString());
-            cameraProps.Add("exposureLock", helper.exposureLock.ToString());
-            cameraProps.Add("exposureLockSupported", helper.exposureLockSupported.ToString());
+            cameraProps.Add("defaultForMediaType", helper.defaultForMediaType.ToString());
+            cameraProps.Add("exposureBias", helper.exposureBias_device.ToString());
+            cameraProps.Add("exposureBiasRange", helper.exposureBiasRange.min + "x" + helper.exposureBiasRange.max);
+            cameraProps.Add("exposureDurationRange", helper.exposureDurationRange.min + "x" + helper.exposureDurationRange.max);
+            cameraProps.Add("exposureMode", helper.exposureMode.ToString());
+            cameraProps.Add("ExposureModeSupported:Continuous", helper.ExposureModeSupported(CameraDevice.ExposureMode.Continuous).ToString());
+            cameraProps.Add("ExposureModeSupported:Locked", helper.ExposureModeSupported(CameraDevice.ExposureMode.Locked).ToString());
+            cameraProps.Add("ExposureModeSupported:Manual", helper.ExposureModeSupported(CameraDevice.ExposureMode.Manual).ToString());
             cameraProps.Add("exposurePointSupported", helper.exposurePointSupported.ToString());
-            cameraProps.Add("exposureRange", helper.exposureRange.max + "x" + helper.exposureRange.min);
             cameraProps.Add("fieldOfView", helper.fieldOfView.width + "x" + helper.fieldOfView.height);
             cameraProps.Add("flashMode", helper.flashMode.ToString());
             cameraProps.Add("flashSupported", helper.flashSupported.ToString());
-            cameraProps.Add("focusLock", helper.focusLock.ToString());
-            cameraProps.Add("focusLockSupported", helper.focusLockSupported.ToString());
+            cameraProps.Add("focusMode", helper.focusMode.ToString());
+            cameraProps.Add("FocusModeSupported:Continuous", helper.FocusModeSupported(CameraDevice.FocusMode.Continuous).ToString());
+            cameraProps.Add("FocusModeSupported:Locked", helper.FocusModeSupported(CameraDevice.FocusMode.Locked).ToString());
             cameraProps.Add("focusPointSupported", helper.focusPointSupported.ToString());
             cameraProps.Add("frameRate", helper.frameRate.ToString());
             cameraProps.Add("frontFacing", helper.frontFacing.ToString());
+            cameraProps.Add("ISORange", helper.ISORange.min + "x" + helper.ISORange.max);
+            cameraProps.Add("location", helper.location.ToString());
+            cameraProps.Add("name", helper.name_device);
             cameraProps.Add("photoResolution", helper.photoResolution.width + "x" + helper.photoResolution.height);
             cameraProps.Add("previewResolution", helper.previewResolution.width + "x" + helper.previewResolution.height);
             cameraProps.Add("running", helper.running.ToString());
             cameraProps.Add("torchEnabled", helper.torchEnabled.ToString());
             cameraProps.Add("torchSupported", helper.torchSupported.ToString());
-            cameraProps.Add("uniqueID", helper.uniqueID);
+            cameraProps.Add("uniqueID", helper.uniqueID.ToString());
             cameraProps.Add("whiteBalanceLock", helper.whiteBalanceLock.ToString());
             cameraProps.Add("whiteBalanceLockSupported", helper.whiteBalanceLockSupported.ToString());
             cameraProps.Add("zoomRange", helper.zoomRange.max + "x" + helper.zoomRange.min);
@@ -217,8 +225,8 @@ namespace NatDeviceWithOpenCVForUnityExample
 
             if (fpsMonitor != null)
             {
-                fpsMonitor.boxWidth = 240;
-                fpsMonitor.boxHeight = 860;
+                fpsMonitor.boxWidth = 280;
+                fpsMonitor.boxHeight = 1080;
                 fpsMonitor.LocateGUI();
 
                 foreach (string key in cameraProps.Keys)
@@ -271,7 +279,7 @@ namespace NatDeviceWithOpenCVForUnityExample
         /// </summary>
         public void OnChangeCameraButtonClick()
         {
-            webCamTextureToMatHelper.requestedIsFrontFacing = !webCamTextureToMatHelper.IsFrontFacing();
+            webCamTextureToMatHelper.requestedIsFrontFacing = !webCamTextureToMatHelper.requestedIsFrontFacing;
         }
 
         /// <summary>

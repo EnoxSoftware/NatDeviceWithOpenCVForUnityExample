@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NatDeviceWithOpenCVForUnityExample
@@ -123,7 +123,8 @@ namespace NatDeviceWithOpenCVForUnityExample
 
             if (!string.IsNullOrEmpty(consoleText))
             {
-                if (toast_time != 0) {
+                if (toast_time != 0)
+                {
                     if (boxVisible)
                     {
                         GUI.Box(console_outer, "");

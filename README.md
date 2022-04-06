@@ -5,12 +5,12 @@
 
 
 ## Environment
-- Anddroid (Pixel, Nexus 7) / iOS (iPhoneSE2)
-- Unity >= 2019.4.26f1+
+- Anddroid (Pixel 3a) / iOS (iPhoneSE2)
+- Unity >= 2020.3.31f1+
 - Scripting backend MONO / IL2CPP
-- [NatDevice - Media Device API](https://assetstore.unity.com/packages/tools/integration/natdevice-media-device-api-162053?aid=1011l4ehR) 1.1.0+
-- [NatShare - Mobile Sharing API](https://github.com/natsuite/NatShare) 1.2.5+
-- [OpenCV for Unity](https://assetstore.unity.com/packages/tools/integration/opencv-for-unity-21088?aid=1011l4ehR) 2.4.5+
+- [NatDevice - Media Device API](https://assetstore.unity.com/packages/tools/integration/natdevice-media-device-api-162053?aid=1011l4ehR) 1.2.0+
+- [NatShare - Mobile Sharing API](https://github.com/natsuite/NatShare) 1.2.6+
+- [OpenCV for Unity](https://assetstore.unity.com/packages/tools/integration/opencv-for-unity-21088?aid=1011l4ehR) 2.4.7+
 
 
 ## Demo
@@ -20,10 +20,14 @@
 ## Setup
 1. Download the latest release unitypackage. [NatDeviceWithOpenCVForUnityExample.unitypackage](https://github.com/EnoxSoftware/NatDeviceWithOpenCVForUnityExample/releases)
 1. Create a new project. (NatDeviceWithOpenCVForUnityExample)
+    * Enable "Allow 'unsafe' Code" option in the "Player Settings > Other Settings" Inspector.
 1. Import NatDevice.
 1. Import NatShare.
 1. Import OpenCVForUnity.
     * Setup the OpenCVForUnity. (Tools > OpenCV for Unity > Set Plugin Import Settings)
+    * Select MenuItem[Tools/OpenCV for Unity/Use Unsafe Code]. 
+      ![Use_UnsafeCode.PNG](Use_UnsafeCode.png)
+      ![AllowUnsafeCode.PNG](AllowUnsafeCode.png)
 1. Import the NatDeviceWithOpenCVForUnityExample.unitypackage.
 1. Change the "Minimum API Level" to 24 or higher in the "Player Settings (Androd)" Inspector.
 1. Change the "Target minimum iOS Version" to 13 or higher in the "Player Settings (iOS)" Inspector.

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace NatDeviceWithOpenCVForUnityExample
 {
@@ -14,6 +14,8 @@ namespace NatDeviceWithOpenCVForUnityExample
         byte[] pixelBuffer;
 
         FpsMonitor fpsMonitor;
+
+        #region --ExampleBase--
 
         protected override async void Start()
         {
@@ -102,5 +104,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             texture = null;
             pixelBuffer = null;
         }
+
+        #endregion
+
     }
 }

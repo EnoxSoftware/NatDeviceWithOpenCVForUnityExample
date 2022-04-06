@@ -1,4 +1,4 @@
-﻿using NatSuite.Devices;
+using NatSuite.Devices;
 using NatSuite.Sharing;
 using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.ImgprocModule;
@@ -17,6 +17,7 @@ namespace NatDeviceWithOpenCVForUnityExample
     /// </summary>
     public class IntegrationWithNatShareExample : ExampleBase<NatDeviceCamSource>
     {
+        public bool applyComicFilter;
         public Toggle applyComicFilterToggle;
 
         Mat frameMatrix;
@@ -48,7 +49,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             }
 
             // Request camera permissions
-            if (!await MediaDeviceQuery.RequestPermissions<CameraDevice>())
+            var permissionStatus = await MediaDeviceQuery.RequestPermissions<CameraDevice>();
+            if (permissionStatus != PermissionStatus.Authorized)
             {
                 Debug.LogError("User did not grant camera permissions");
                 return;
@@ -62,6 +64,10 @@ namespace NatDeviceWithOpenCVForUnityExample
             if (cameraSource.activeCamera == null)
                 cameraSource = new NatDeviceCamSource(width, height, framerate, !useFrontCamera);
             await cameraSource.StartRunning(OnStart, OnFrame);
+
+            // Update GUI state
+            applyComicFilterToggle.isOn = applyComicFilter;
+
             // Create comic filter
             comicFilter = new ComicFilter();
 
@@ -71,9 +77,11 @@ namespace NatDeviceWithOpenCVForUnityExample
 
         protected override void OnStart()
         {
+            base.OnStart();
+
             settingInfo1 = "- resolution: " + cameraSource.width + "x" + cameraSource.height;
 
-            // Create matrix
+            // Create matrices
             if (frameMatrix != null)
                 frameMatrix.Dispose();
             frameMatrix = new Mat(cameraSource.height, cameraSource.width, CvType.CV_8UC4);
@@ -119,8 +127,8 @@ namespace NatDeviceWithOpenCVForUnityExample
         protected override void UpdateTexture()
         {
             cameraSource.CaptureFrame(frameMatrix);
-
-            if (applyComicFilterToggle.isOn)
+            
+            if (applyComicFilter)
                 comicFilter.Process(frameMatrix, frameMatrix);
 
             textPos.x = 5;
@@ -130,7 +138,7 @@ namespace NatDeviceWithOpenCVForUnityExample
             Imgproc.putText(frameMatrix, exampleSceneTitle, textPos, Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, textColor, 1, Imgproc.LINE_AA, false);
             textPos.y = frameMatrix.rows() - 10;
             Imgproc.putText(frameMatrix, settingInfo1, textPos, Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, textColor, 1, Imgproc.LINE_AA, false);
-
+            
             // Convert to Texture2D
             Utils.fastMatToTexture2D(frameMatrix, texture, true, 0, false);
         }
@@ -166,6 +174,14 @@ namespace NatDeviceWithOpenCVForUnityExample
             }
         }
 
+        public void OnApplyComicFilterToggleValueChanged()
+        {
+            if (applyComicFilter != applyComicFilterToggle.isOn)
+            {
+                applyComicFilter = applyComicFilterToggle.isOn;
+            }
+        }
+
         public async void OnShareButtonClick()
         {
             var mes = "";
@@ -197,7 +213,7 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             var mes = "";
 
- #if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
             try
             {
                 SavePayload payload = new SavePayload("NatDeviceWithOpenCVForUnityExample");

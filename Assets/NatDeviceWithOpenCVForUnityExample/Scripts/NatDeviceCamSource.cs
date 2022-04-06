@@ -1,4 +1,5 @@
 using NatSuite.Devices;
+using NatSuite.Devices.Outputs;
 using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.UtilsModule;
 using System;
@@ -17,7 +18,7 @@ namespace NatDeviceWithOpenCVForUnityExample
         private Action startCallback, frameCallback;
         private int requestedWidth, requestedHeight, requestedFramerate;
         private MediaDeviceQuery deviceQuery;
-        private byte[] previewPixelBuffer;
+        private PixelBufferOutput previewPixelBufferOutput;
 
         #endregion
 
@@ -27,6 +28,25 @@ namespace NatDeviceWithOpenCVForUnityExample
         public int width { get; private set; }
 
         public int height { get; private set; }
+
+        public long timestamp { get; private set; }
+
+        public bool verticallyMirrored { get; private set; }
+
+        public Matrix4x4 intrinsics { get; private set; }
+
+        public float exposureBias { get; private set; }
+
+        public float exposureDuration { get; private set; }
+
+        public float ISO { get; private set; }
+
+        public float focalLength { get; private set; }
+
+        public float fNumber { get; private set; }
+
+        public float brightness { get; private set; }
+
 
         public bool isRunning { get; private set; }
 
@@ -83,7 +103,11 @@ namespace NatDeviceWithOpenCVForUnityExample
             this.startCallback = startCallback;
             this.frameCallback = frameCallback;
 
-            activeCamera.StartRunning(OnPixelBufferReceived);
+            if (previewPixelBufferOutput == null)
+                previewPixelBufferOutput = new PixelBufferOutput();
+
+            activeCamera.StartRunning(OnPixelBufferOutputReceived);
+
             await Task.Yield();
         }
 
@@ -93,33 +117,51 @@ namespace NatDeviceWithOpenCVForUnityExample
                 return;
 
             isRunning = false;
-            previewPixelBuffer = null;
 
-            activeCamera.StopRunning();
+            if (previewPixelBufferOutput != null)
+            {
+                previewPixelBufferOutput.Dispose();
+                previewPixelBufferOutput = null;
+            }
+
+            if (activeCamera.running)
+                activeCamera.StopRunning();
         }
 
         public void CaptureFrame(Mat matrix)
         {
-            if (previewPixelBuffer == null) return;
+            if (!isRunning) return;
 
-            MatUtils.copyToMat(previewPixelBuffer, matrix);
+            if (matrix.width() != previewPixelBufferOutput.width || matrix.height() != previewPixelBufferOutput.height)
+                throw new ArgumentException("matrix and CamSource image need to be the same size.");
+
+            MatUtils.copyToMat(previewPixelBufferOutput.pixelBuffer, matrix);
             Core.flip(matrix, matrix, 0);
         }
 
         public void CaptureFrame(Color32[] pixelBuffer)
         {
-            if (previewPixelBuffer == null) return;
+            if (!isRunning) return;
 
-            GCHandle pin = GCHandle.Alloc(pixelBuffer, GCHandleType.Pinned);
-            Marshal.Copy(previewPixelBuffer, 0, pin.AddrOfPinnedObject(), previewPixelBuffer.Length);
-            pin.Free();
+            if (pixelBuffer.Length * 4 != previewPixelBufferOutput.pixelBuffer.Length)
+                throw new ArgumentException("pixelBuffer and CamSource image need to be the same size.");
+
+            unsafe
+            {
+                GCHandle pin = GCHandle.Alloc(pixelBuffer, GCHandleType.Pinned);
+                Buffer.MemoryCopy(Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(previewPixelBufferOutput.pixelBuffer), (void*)pin.AddrOfPinnedObject(), pixelBuffer.Length * 4, previewPixelBufferOutput.pixelBuffer.Length);
+                pin.Free();
+            }
         }
 
         public void CaptureFrame(byte[] pixelBuffer)
         {
-            if (previewPixelBuffer == null) return;
+            if (!isRunning) return;
 
-            Buffer.BlockCopy(previewPixelBuffer, 0, pixelBuffer, 0, previewPixelBuffer.Length);
+            if (pixelBuffer.Length != previewPixelBufferOutput.pixelBuffer.Length)
+                throw new ArgumentException("pixelBuffer and CamSource image need to be the same size.");
+
+            previewPixelBufferOutput.pixelBuffer.CopyTo(pixelBuffer);
         }
 
         public async Task SwitchCamera()
@@ -148,15 +190,41 @@ namespace NatDeviceWithOpenCVForUnityExample
 
         #region --Operations--
 
-        private void OnPixelBufferReceived(byte[] pixelBuffer, int width, int height, long timestamp)
+        private void OnPixelBufferOutputReceived(CameraImage image)
         {
-            bool firstFrame = previewPixelBuffer == null;
+            if (previewPixelBufferOutput == null)
+                return;
+
+            // Process only when the latest previewResolution and CameraImage size match.
+            if (activeCamera == null || activeCamera.previewResolution.width != image.width || activeCamera.previewResolution.height != image.height)
+                return;
+
+            timestamp = image.timestamp;
+            verticallyMirrored = image.verticallyMirrored;
+            float[] intrinsics = image.intrinsics;
+            this.intrinsics = (intrinsics != null) ?
+                new Matrix4x4(
+                    new Vector4(intrinsics[0], intrinsics[3], intrinsics[6]),
+                    new Vector4(intrinsics[1], intrinsics[4], intrinsics[7]),
+                    new Vector4(intrinsics[2], intrinsics[5], intrinsics[8]),
+                    new Vector4())
+                : Matrix4x4.zero;
+            exposureBias = image.exposureBias ?? -1f;
+            exposureDuration = image.exposureDuration ?? -1f;
+            ISO = image.ISO ?? -1f;
+            focalLength = image.focalLength ?? -1f;
+            fNumber = image.fNumber ?? -1f;
+            brightness = image.brightness ?? -1f;
+
+
+            bool firstFrame = !previewPixelBufferOutput.pixelBuffer.IsCreated;
+
+            previewPixelBufferOutput.Update(image);
 
             if (firstFrame)
             {
-                previewPixelBuffer = pixelBuffer;
-                this.width = width;
-                this.height = height;
+                width = previewPixelBufferOutput.width;
+                height = previewPixelBufferOutput.height;
 
                 isRunning = true;
 
@@ -166,6 +234,7 @@ namespace NatDeviceWithOpenCVForUnityExample
             {
                 frameCallback();
             }
+
         }
 
         #endregion

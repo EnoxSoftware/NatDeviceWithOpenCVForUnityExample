@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -11,7 +11,7 @@ namespace NatDeviceWithOpenCVForUnityExample
 
         public static string GetNatDeviceVersion()
         {
-            return "1.1.0";
+            return "1.2.0";
         }
 
         public enum FrameratePreset

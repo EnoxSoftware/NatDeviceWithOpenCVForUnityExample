@@ -1,4 +1,5 @@
-﻿using NatSuite.Devices;
+using NatSuite.Devices;
+using NatSuite.Devices.Outputs;
 using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.ImgprocModule;
 using OpenCVForUnity.UnityUtils.Helper;
@@ -14,15 +15,13 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
     /// The Mat object's type is 'CV_8UC4' or 'CV_8UC3' or 'CV_8UC1' (ColorFormat is determined by the outputColorFormat setting).
     /// </summary>
     /// <param name="mat">The recently captured frame image mat.</param>
-    /// <param name="width">Pixel buffer width.</param>
-    /// <param name="height">Pixel buffer width.</param>
     /// <param name="timestamp">Pixel buffer timestamp in nanoseconds.</param>
-    public delegate void FrameMatAcquiredCallback(Mat mat, int width, int height, long timestamp);
+    public delegate void FrameMatAcquiredCallback(Mat mat, long timestamp);
 
     /// <summary>
     /// NatDeviceCamPreview to mat helper.
-    /// v 1.0.2
-    /// Depends on NatDevice version 1.1.0 or later.
+    /// v 1.0.3
+    /// Depends on NatDevice version 1.2.0 or later.
     /// Depends on OpenCVForUnity version 2.4.4 (WebCamTextureToMatHelper v 1.1.3 or later.
     /// </summary>
     public class NatDeviceCamPreviewToMatHelper : WebCamTextureToMatHelper
@@ -38,40 +37,69 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
         #region --NatDevice CameraDevice Properties--
 
-        public virtual bool running => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().running : default;
+        public virtual bool defaultForMediaType => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().defaultForMediaType : default;
 
-        public virtual string uniqueID => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().uniqueID : default;
+        public virtual float exposureBias_device // exposureBias
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureBias : default; }
+            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().exposureBias = value; }
+        }
 
-        public virtual bool frontFacing => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().frontFacing : default;
+        public virtual (float min, float max) exposureBiasRange
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureBiasRange : default; }
+        }
 
-        public virtual bool flashSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().flashSupported : default;
+        public virtual (float min, float max) exposureDurationRange
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureDurationRange : default; }
+        }
 
-        public virtual bool torchSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().torchSupported : default;
-
-        public virtual bool exposureLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureLockSupported : default;
+        public virtual CameraDevice.ExposureMode exposureMode
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureMode : default; }
+            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().exposureMode = value; }
+        }
 
         public virtual bool exposurePointSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposurePointSupported : default;
-
-        public virtual bool focusLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusLockSupported : default;
-
-        public virtual bool focusPointSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusPointSupported : default;
-
-        public virtual bool whiteBalanceLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().whiteBalanceLockSupported : default;
 
         public virtual (float width, float height) fieldOfView
         {
             get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().fieldOfView : default; }
         }
 
-        public virtual (float min, float max) exposureRange
+        public virtual CameraDevice.FlashMode flashMode
         {
-            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureRange : default; }
+            get { return (GetNatDeviceCameraDevice() != null && GetNatDeviceCameraDevice().running) ? GetNatDeviceCameraDevice().flashMode : default; }
+            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().flashMode = value; }
         }
 
-        public virtual (float min, float max) zoomRange
+        public virtual bool flashSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().flashSupported : default;
+
+        public virtual CameraDevice.FocusMode focusMode
         {
-            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().zoomRange : default; }
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusMode : default; }
+            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().focusMode = value; }
         }
+
+        public virtual bool focusPointSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusPointSupported : default;
+
+        public virtual int frameRate
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().frameRate : default; }
+            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().frameRate = value; }
+        }
+
+        public virtual bool frontFacing => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().frontFacing : default;
+
+        public virtual (float min, float max) ISORange
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().ISORange : default; }
+        }
+
+        public virtual DeviceLocation location => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().location : default;
+
+        public virtual string name_device => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().name : ""; // name
 
         public virtual (int width, int height) previewResolution
         {
@@ -85,45 +113,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().photoResolution = (width: value.width, height: value.height); }
         }
 
-        public virtual int frameRate
-        {
-            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().frameRate : default; }
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().frameRate = value; }
-        }
-
-        public virtual float exposureBias
-        {
-            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureBias : default; }
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().exposureBias = value; }
-        }
-
-        public virtual bool exposureLock
-        {
-            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().exposureLock : default; }
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().exposureLock = value; }
-        }
-
-        public virtual (float x, float y) exposurePoint
-        {
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().exposurePoint = (x: value.x, y: value.y); }
-        }
-
-        public virtual FlashMode flashMode
-        {
-            get { return (GetNatDeviceCameraDevice() != null && GetNatDeviceCameraDevice().running) ? GetNatDeviceCameraDevice().flashMode : default; }
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().flashMode = value; }
-        }
-
-        public virtual bool focusLock
-        {
-            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().focusLock : default; }
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().focusLock = value; }
-        }
-
-        public virtual (float x, float y) focusPoint
-        {
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().exposurePoint = (x: value.x, y: value.y); }
-        }
+        public virtual bool running => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().running : default;
 
         public virtual bool torchEnabled
         {
@@ -131,10 +121,21 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().torchEnabled = value; }
         }
 
+        public virtual bool torchSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().torchSupported : default;
+
+        public virtual string uniqueID => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().uniqueID : "";
+
         public virtual bool whiteBalanceLock
         {
             get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().whiteBalanceLock : default; }
             set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().whiteBalanceLock = value; }
+        }
+
+        public virtual bool whiteBalanceLockSupported => GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().whiteBalanceLockSupported : default;
+
+        public virtual (float min, float max) zoomRange
+        {
+            get { return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().zoomRange : default; }
         }
 
         public virtual float zoomRatio
@@ -143,14 +144,68 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().zoomRatio = value; }
         }
 
-        public virtual ScreenOrientation orientation
-        {
-            set { if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().orientation = value; }
-        }
         #endregion
 
 
-#if (UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
+        #region --NatDevice CameraDevice Functions--
+
+        public virtual void CapturePhoto(Action<CameraImage> handler)
+        {
+            if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().CapturePhoto(handler);
+        }
+
+        public virtual bool ExposureModeSupported(CameraDevice.ExposureMode exposureMode)
+        {
+            return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().ExposureModeSupported(exposureMode) : default;
+        }
+
+        public virtual bool FocusModeSupported(CameraDevice.FocusMode focusMode)
+        {
+            return GetNatDeviceCameraDevice() != null ? GetNatDeviceCameraDevice().FocusModeSupported(focusMode) : default;
+        }
+
+        public virtual void SetExposureDuration(float duration, float ISO)
+        {
+            if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().SetExposureDuration(duration, ISO);
+        }
+
+        public virtual void SetExposurePoint(float x, float y)
+        {
+            if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().SetExposurePoint(x, y);
+        }
+
+        public virtual void SetFocusPoint(float x, float y)
+        {
+            if (GetNatDeviceCameraDevice() != null) GetNatDeviceCameraDevice().SetFocusPoint(x, y);
+        }
+
+        #endregion
+
+
+        #region --NatDevice CameraImage Properties--
+
+        public long timestamp { get; private set; }
+
+        public bool verticallyMirrored { get; private set; }
+
+        public Matrix4x4 intrinsics { get; private set; }
+
+        public float exposureBias { get; private set; }
+
+        public float exposureDuration { get; private set; }
+
+        public float ISO { get; private set; }
+
+        public float focalLength { get; private set; }
+
+        public float fNumber { get; private set; }
+
+        public float brightness { get; private set; }
+
+        #endregion
+
+
+#if (UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX || UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
 
         public override float requestedFPS
         {
@@ -169,8 +224,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         protected bool didUpdateThisFrame = false;
         protected bool didUpdatePreviewPixelBufferInCurrentFrame = false;
         protected CameraDevice cameraDevice;
-
-        protected byte[] previewPixelBuffer;
+        protected PixelBufferOutput previewPixelBufferOutput;
         protected int previewWidth;
         protected int previewHeight;
 
@@ -178,14 +232,10 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
         protected virtual void LateUpdate()
         {
-#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
-            didUpdateThisFrame = false;
-#else
             if (didUpdateThisFrame && !didUpdatePreviewPixelBufferInCurrentFrame)
                 didUpdateThisFrame = false;
 
             didUpdatePreviewPixelBufferInCurrentFrame = false;
-#endif
         }
 
         protected virtual IEnumerator OnApplicationPause(bool pauseStatus)
@@ -220,21 +270,45 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             }
         }
 
-        private void OnPixelBufferReceived(byte[] pixelBuffer, int width, int height, long timestamp)
+        private void OnPixelBufferReceived(CameraImage image)
         {
-            bool firstFrame = previewPixelBuffer == null;
+            if (previewPixelBufferOutput == null)
+                return;
+
+            // Process only when the latest previewResolution and CameraImage size match.
+            if (cameraDevice == null || cameraDevice.previewResolution.width != image.width || cameraDevice.previewResolution.height != image.height)
+                return;
+
+            timestamp = image.timestamp;
+            verticallyMirrored = image.verticallyMirrored;
+            float[] intrinsics = image.intrinsics;
+            this.intrinsics = (intrinsics != null) ?
+                new Matrix4x4(
+                    new Vector4(intrinsics[0], intrinsics[3], intrinsics[6]),
+                    new Vector4(intrinsics[1], intrinsics[4], intrinsics[7]),
+                    new Vector4(intrinsics[2], intrinsics[5], intrinsics[8]),
+                    new Vector4())
+                : Matrix4x4.zero;
+            exposureBias = image.exposureBias ?? -1f;
+            exposureDuration = image.exposureDuration ?? -1f;
+            ISO = image.ISO ?? -1f;
+            focalLength = image.focalLength ?? -1f;
+            fNumber = image.fNumber ?? -1f;
+            brightness = image.brightness ?? -1f;
+
+
+            bool firstFrame = !previewPixelBufferOutput.pixelBuffer.IsCreated;
+            previewPixelBufferOutput.Update(image);
 
             if (firstFrame)
             {
-                previewPixelBuffer = pixelBuffer;
-                previewWidth = width;
-                previewHeight = height;
+                previewWidth = previewPixelBufferOutput.width;
+                previewHeight = previewPixelBufferOutput.height;
             }
 
             if (isStartWaiting)
             {
                 isStartWaiting = false;
-                previewPixelBuffer = pixelBuffer;
             }
 
             didUpdateThisFrame = true;
@@ -242,9 +316,10 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
 
             if (hasInitDone && frameMatAcquired != null)
             {
-                frameMatAcquired.Invoke(GetMat(), width, height, timestamp);
+                frameMatAcquired.Invoke(GetMat(), timestamp);
             }
         }
+
 
         // Update is called once per frame
         protected override void Update()
@@ -383,6 +458,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             didUpdateThisFrame = false;
             didUpdatePreviewPixelBufferInCurrentFrame = false;
 
+            previewPixelBufferOutput = new PixelBufferOutput();
             cameraDevice.StartRunning(OnPixelBufferReceived);
 
             int initFrameCount = 0;
@@ -397,7 +473,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                 }
                 else if (didUpdateThisFrame)
                 {
-                    Debug.Log("NatDeviceCamPreviewToMatHelper:: " + "UniqueID:" + cameraDevice.uniqueID + " width:" + previewWidth + " height:" + previewHeight + " fps:" + cameraDevice.frameRate
+                    Debug.Log("NatDeviceCamPreviewToMatHelper:: " + "name:" + cameraDevice.name + " width:" + previewWidth + " height:" + previewHeight + " fps:" + cameraDevice.frameRate
                     + " isFrongFacing:" + cameraDevice.frontFacing);
 
                     baseMat = new Mat(previewHeight, previewWidth, CvType.CV_8UC4);
@@ -408,7 +484,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                     }
                     else
                     {
-                        frameMat = new Mat(baseMat.rows(), baseMat.cols(), CvType.CV_8UC(Channels(outputColorFormat)));
+                        frameMat = new Mat(baseMat.rows(), baseMat.cols(), CvType.CV_8UC(Channels(outputColorFormat)), new Scalar(0, 0, 0, 255));
                     }
 
                     screenOrientation = Screen.orientation;
@@ -416,9 +492,9 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                     screenHeight = Screen.height;
 
                     if (rotate90Degree)
-                        rotatedFrameMat = new Mat(frameMat.cols(), frameMat.rows(), CvType.CV_8UC(Channels(outputColorFormat)));
+                        rotatedFrameMat = new Mat(frameMat.cols(), frameMat.rows(), CvType.CV_8UC(Channels(outputColorFormat)), new Scalar(0, 0, 0, 255));
 
-                    isInitWaiting = false;
+                        isInitWaiting = false;
                     hasInitDone = true;
                     initCoroutine = null;
 
@@ -526,7 +602,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         /// <returns>The active camera device name.</returns>
         public override string GetDeviceName()
         {
-            return hasInitDone ? cameraDevice.uniqueID : "";
+            return hasInitDone ? cameraDevice.name : "";
         }
 
         /// <summary>
@@ -566,14 +642,14 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         /// <returns>The NatDevice camera device.</returns>
         public virtual CameraDevice GetNatDeviceCameraDevice()
         {
-#if (UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
+#if (UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX || UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
             return cameraDevice;
 #else
             return null;
 #endif
         }
 
-#if (UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
+#if (UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX || UNITY_IOS || UNITY_ANDROID) && !DISABLE_NATDEVICE_API
         /// <summary>
         /// Gets the mat of the current frame.
         /// The Mat object's type is 'CV_8UC4' or 'CV_8UC3' or 'CV_8UC1' (ColorFormat is determined by the outputColorFormat setting).
@@ -582,7 +658,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
         /// <returns>The mat of the current frame.</returns>
         public override Mat GetMat()
         {
-            if (!hasInitDone || !cameraDevice.running || previewPixelBuffer == null)
+            if (!hasInitDone || !cameraDevice.running || previewPixelBufferOutput == null)
             {
                 return (rotatedFrameMat != null) ? rotatedFrameMat : frameMat;
             }
@@ -595,7 +671,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                     frameMat = baseMat;
                 }
 
-                MatUtils.copyToMat(previewPixelBuffer, frameMat);
+                MatUtils.copyToMat(previewPixelBufferOutput.pixelBuffer, frameMat);
             }
             else
             {
@@ -604,7 +680,7 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
                     frameMat = new Mat(baseMat.rows(), baseMat.cols(), CvType.CV_8UC(Channels(outputColorFormat)));
                 }
 
-                MatUtils.copyToMat(previewPixelBuffer, baseMat);
+                MatUtils.copyToMat(previewPixelBufferOutput.pixelBuffer, baseMat);
                 Imgproc.cvtColor(baseMat, frameMat, ColorConversionCodes(baseColorFormat, outputColorFormat));
             }
 
@@ -687,7 +763,11 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             isInitWaiting = false;
             hasInitDone = false;
 
-            previewPixelBuffer = null;
+            if (previewPixelBufferOutput != null)
+            {
+                previewPixelBufferOutput.Dispose();
+                previewPixelBufferOutput = null;
+            }
 
             didUpdateThisFrame = false;
             didUpdatePreviewPixelBufferInCurrentFrame = false;
@@ -762,5 +842,6 @@ namespace NatDeviceWithOpenCVForUnity.UnityUtils.Helper
             cameraDevice = null;
         }
 #endif
+
     }
 }

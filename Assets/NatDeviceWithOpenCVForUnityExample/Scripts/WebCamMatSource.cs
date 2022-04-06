@@ -139,6 +139,9 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             if (uprightMatrix == null) return;
 
+            if ((int)matrix.total() * (int)matrix.elemSize() != (int)uprightMatrix.total() * (int)uprightMatrix.elemSize())
+                throw new ArgumentException("matrix and CamSource image need to be the same size.");
+
             uprightMatrix.copyTo(matrix);
         }
 
@@ -146,12 +149,18 @@ namespace NatDeviceWithOpenCVForUnityExample
         {
             if (uprightMatrix == null) return;
 
+            if (pixelBuffer.Length * 4 != (int)uprightMatrix.total() * (int)uprightMatrix.elemSize())
+                throw new ArgumentException("pixelBuffer and CamSource image need to be the same size.");
+
             MatUtils.copyFromMat(uprightMatrix, pixelBuffer);
         }
 
         public void CaptureFrame(byte[] pixelBuffer)
         {
             if (uprightMatrix == null) return;
+
+            if (pixelBuffer.Length != (int)uprightMatrix.total() * (int)uprightMatrix.elemSize())
+                throw new ArgumentException("pixelBuffer and CamSource image need to be the same size.");
 
             MatUtils.copyFromMat(uprightMatrix, pixelBuffer);
         }

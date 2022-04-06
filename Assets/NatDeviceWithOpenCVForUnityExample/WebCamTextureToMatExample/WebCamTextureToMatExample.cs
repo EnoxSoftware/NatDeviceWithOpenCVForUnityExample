@@ -1,4 +1,4 @@
-﻿using OpenCVForUnity.CoreModule;
+using OpenCVForUnity.CoreModule;
 using OpenCVForUnity.UnityUtils;
 using UnityEngine;
 
@@ -16,6 +16,8 @@ namespace NatDeviceWithOpenCVForUnityExample
         Texture2D texture;
 
         FpsMonitor fpsMonitor;
+
+        #region --ExampleBase--
 
         protected override async void Start()
         {
@@ -112,5 +114,8 @@ namespace NatDeviceWithOpenCVForUnityExample
             grayMatrix =
             frameMatrix = null;
         }
+
+        #endregion
+
     }
 }
