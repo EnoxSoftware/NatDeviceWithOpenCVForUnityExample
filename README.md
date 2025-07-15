@@ -1,3 +1,8 @@
+# This example project has been deprecated.
+**The “NatCam” and “NatShare” assets that the integration example depends on have been deprecated in the Unity Asset Store. These features appear to have been merged and evolved into a new asset called VideoKit (https://www.videokit.ai/).**
+
+---
+
 # NatDevice With OpenCVForUnity Example
 - An example of a benchmark test integrating NatDevice and OpenCVForUnity. (Comparison between WebCamTexture and NatDevice API)  
 - An example of replacing WebCamTextureToMatHelper with NatDeviceCamPreviewToMatHelper.
